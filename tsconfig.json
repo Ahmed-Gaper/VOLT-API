@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "rootDir": "./src", // Source files root directory
+    "outDir": "./dist", // Output compiled files directory
+
+    // Module system and target
+    "module": "nodenext", // Use Node.js ESM with support for .js/.ts extensions
+    "target": "ES2022", // Compile to modern JavaScript version supported by Node.js
+    "lib": ["ES2022"], // Include ES2022 library features (no DOM for backend)
+
+    "types": ["node"], // Include Node.js type declarations
+
+    "moduleResolution": "nodenext", // Match module strategy for proper resolution in Node.js ESM
+
+    "sourceMap": true, // Generate source maps for debugging
+
+    // Strict type checking
+    "strict": true, // Enable all strict type-checking options
+    "noUncheckedIndexedAccess": true, // Check for undefined on indexing (arrays/objects)
+    "exactOptionalPropertyTypes": true, // Exact control over optional properties
+
+    // Safety and style
+    "noImplicitReturns": true, // Require functions to explicitly return a value
+    "noImplicitOverride": true, // Require explicit override modifier on subclasses
+    "noFallthroughCasesInSwitch": true, // Prevent fall-through cases in switch statements
+    "noPropertyAccessFromIndexSignature": true, // Disallow property access via index signature
+    "noImplicitAny": true, // Disallow implicit 'any' types to force explicit typing
+    "forceConsistentCasingInFileNames": true, // Enforce consistent file casing between imports and filesystem
+
+    // Recommended safety
+    "verbatimModuleSyntax": true, // Enforce exact syntax for imports/exports (important ESM compatibility)
+    "isolatedModules": true, // Ensure all files can be transpiled independently
+    "noUncheckedSideEffectImports": true, // Error when importing modules with unchecked side effects
+    "moduleDetection": "force", // Force module detection (useful in mixed CommonJS/ESM projects)
+    "skipLibCheck": true, // Skip type checking of declaration files in node_modules for faster builds
+
+    "esModuleInterop": true, // Enable compatible import syntax for CommonJS modules
+    "resolveJsonModule": true // Allow importing JSON modules (useful for config files)
+  },
+  "include": ["src/**/*"] // Include all TypeScript files in src directory
+}
