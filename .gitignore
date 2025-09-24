@@ -24,6 +24,7 @@ lib/
 .env.test.local
 .env.production.local
 secrets.env
+config.env
 
 # Logs
 logs
