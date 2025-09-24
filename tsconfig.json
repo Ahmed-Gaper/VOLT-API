@@ -23,7 +23,7 @@
     "noImplicitReturns": true, // Require functions to explicitly return a value
     "noImplicitOverride": true, // Require explicit override modifier on subclasses
     "noFallthroughCasesInSwitch": true, // Prevent fall-through cases in switch statements
-    "noPropertyAccessFromIndexSignature": true, // Disallow property access via index signature
+    // "noPropertyAccessFromIndexSignature": true, // Disallow property access via index signature
     "noImplicitAny": true, // Disallow implicit 'any' types to force explicit typing
     "forceConsistentCasingInFileNames": true, // Enforce consistent file casing between imports and filesystem
 
@@ -37,5 +37,5 @@
     "esModuleInterop": true, // Enable compatible import syntax for CommonJS modules
     "resolveJsonModule": true // Allow importing JSON modules (useful for config files)
   },
-  "include": ["src/**/*"] // Include all TypeScript files in src directory
+  "include": ["src/**/*", "src/config"] // Include all TypeScript files in src directory
 }
