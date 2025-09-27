@@ -1,0 +1,17 @@
+import { Router } from 'express';
+import { AuthController } from '../controllers/authController.js';
+import { authMiddleware, requireAuth } from '../middleware/authMiddleware.js';
+
+const router = Router();
+
+// Public routes
+router.post('/signup', AuthController.signUp);
+
+// Protected routes (require authentication)
+router.use(authMiddleware);
+router.patch('/profile', requireAuth, AuthController.completeProfile);
+router.post('/profile-picture', requireAuth, AuthController.uploadProfilePicture);
+router.post('/skip-complete-profile', requireAuth, AuthController.skipCompleteProfile);
+router.post('/skip-profile-picture', requireAuth, AuthController.skipProfilePicture);
+
+export const authRoutes = router;

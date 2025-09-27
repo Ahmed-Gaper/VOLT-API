@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ms from 'ms';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,8 @@ export interface Config {
   NODE_ENV: string;
   DATABASE_URL: string;
   DB_NAME: string;
+  JWT_SECRET: string;
+  JWT_EXPIRES_IN: ms.StringValue;
 }
 
 export const config: Config = {
@@ -23,4 +26,6 @@ export const config: Config = {
   DATABASE_URL: `${process.env.DATABASE_URL!.split('?')[0]}${
     process.env.DB_NAME
   }?${process.env.DATABASE_URL!.split('?')[1]}`,
+  JWT_SECRET: process.env.JWT_SECRET || 'default-jwt-secret',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN! as ms.StringValue,
 };
