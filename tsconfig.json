@@ -20,7 +20,7 @@
     "exactOptionalPropertyTypes": true, // Exact control over optional properties
 
     // Safety and style
-    "noImplicitReturns": true, // Require functions to explicitly return a value
+    // "noImplicitReturns": true, // Require functions to explicitly return a value
     "noImplicitOverride": true, // Require explicit override modifier on subclasses
     "noFallthroughCasesInSwitch": true, // Prevent fall-through cases in switch statements
     // "noPropertyAccessFromIndexSignature": true, // Disallow property access via index signature
