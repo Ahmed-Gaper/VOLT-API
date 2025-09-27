@@ -91,6 +91,79 @@ export class AuthController {
     }
   }
 
+  static async login(req: Request, res: Response) {
+    try {
+      const { identifier, password } = req.body;
+
+      if (!identifier || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Identifier and password are required',
+        });
+      }
+
+      const user = await User.findOne({
+        $or: [{ email: identifier }, { username: identifier }],
+      }).select('+password');
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
+
+      if (!user.password) {
+        return res.status(401).json({
+          success: false,
+          message:
+            'This account was created with social login. Please use the appropriate login method.',
+        });
+      }
+
+      const isPasswordValid = await user.comparePassword(password);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
+
+      const token: string = AuthController.signToken(user._id, user.email);
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      let errorMessage = 'Internal server error';
+      if (error instanceof Error) {
+        errorMessage = `Internal server error: ${error.message}`;
+      }
+      res.status(500).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
+  }
+
   static async completeProfile(req: AuthRequest, res: Response) {
     try {
       const { displayName, dateOfBirth, country, bio } = req.body;
