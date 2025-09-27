@@ -6,6 +6,7 @@ const router = Router();
 
 // Public routes
 router.post('/signup', AuthController.signUp);
+router.post('/login', AuthController.login);
 
 // Protected routes (require authentication)
 router.use(authMiddleware);
