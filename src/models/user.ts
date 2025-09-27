@@ -13,7 +13,6 @@ export interface IUser extends Document {
   authProvider: 'local' | 'google' | 'facebook' | 'apple';
   socialId?: string;
   isVerified: boolean;
-  onboardingStep: number;
   role: 'viewer' | 'streamer' | 'admin';
   followers: Schema.Types.ObjectId[];
   following: Schema.Types.ObjectId[];
@@ -77,12 +76,6 @@ const userSchema = new Schema<IUser>(
     isVerified: {
       type: Boolean,
       default: false,
-    },
-    onboardingStep: {
-      type: Number,
-      default: 1,
-      min: 1,
-      max: 3,
     },
     role: {
       type: String,

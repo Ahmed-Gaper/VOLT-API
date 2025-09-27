@@ -11,7 +11,5 @@ router.post('/signup', AuthController.signUp);
 router.use(authMiddleware);
 router.patch('/profile', requireAuth, AuthController.completeProfile);
 router.post('/profile-picture', requireAuth, AuthController.uploadProfilePicture);
-router.post('/skip-complete-profile', requireAuth, AuthController.skipCompleteProfile);
-router.post('/skip-profile-picture', requireAuth, AuthController.skipProfilePicture);
 
 export const authRoutes = router;

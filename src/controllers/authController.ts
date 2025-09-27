@@ -14,7 +14,17 @@ export class AuthController {
 
   static async signUp(req: Request, res: Response) {
     try {
-      const { username, email, password, confirmPassword } = req.body;
+      const {
+        username,
+        email,
+        password,
+        confirmPassword,
+        displayName,
+        country,
+        dateOfBirth,
+        bio,
+        profilePicture,
+      } = req.body;
 
       if (password !== confirmPassword) {
         return res.status(400).json({
@@ -38,11 +48,11 @@ export class AuthController {
         username,
         email,
         password,
-        displayName: username,
-        country: '',
-        dateOfBirth: new Date(),
-        bio: '',
-        onboardingStep: 1,
+        displayName: displayName || username,
+        ...(country?.trim() && { country }),
+        ...(dateOfBirth && { dateOfBirth: new Date(dateOfBirth) }),
+        ...(bio?.trim() && { bio }),
+        ...(profilePicture?.trim() && { profilePicture }),
       });
 
       console.log(user);
@@ -53,14 +63,18 @@ export class AuthController {
 
       res.status(201).json({
         success: true,
-        message: 'Account created successfully. Please complete your profile.',
+        message: 'Account created successfully.',
         data: {
           token,
           user: {
             id: user._id,
             username: user.username,
             email: user.email,
-            onboardingStep: user.onboardingStep,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
           },
         },
       });
@@ -95,7 +109,6 @@ export class AuthController {
       user.country = country;
       user.dateOfBirth = dateOfBirth && new Date(dateOfBirth);
       user.bio = bio;
-      user.onboardingStep = 2;
 
       await user.save();
 
@@ -106,7 +119,6 @@ export class AuthController {
           user: {
             id: user._id,
             displayName: user.displayName,
-            onboardingStep: user.onboardingStep,
           },
         },
       });
@@ -140,7 +152,6 @@ export class AuthController {
       }
 
       user.profilePicture = profilePicture;
-      user.onboardingStep = 3; // Onboarding complete
       await user.save();
 
       res.json({
@@ -150,79 +161,11 @@ export class AuthController {
           user: {
             id: user._id,
             profilePicture: user.profilePicture,
-            onboardingStep: user.onboardingStep,
           },
         },
       });
     } catch (error) {
       console.error('Upload profile picture error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-
-  static async skipCompleteProfile(req: AuthRequest, res: Response) {
-    try {
-      const userId = req.userId;
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      user.onboardingStep = 2;
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Profile completion skipped.',
-        data: {
-          user: {
-            id: user._id,
-            onboardingStep: user.onboardingStep,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Skip complete profile error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-  static async skipProfilePicture(req: AuthRequest, res: Response) {
-    try {
-      const userId = req.userId;
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      user.onboardingStep = 3; // Onboarding complete
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Profile setup completed successfully',
-        data: {
-          user: {
-            id: user._id,
-            onboardingStep: user.onboardingStep,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Skip profile picture error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
