@@ -7,6 +7,8 @@ const router = Router();
 // Public routes
 router.post('/signup', AuthController.signUp);
 router.post('/login', AuthController.login);
+router.post('/forgotPassword', AuthController.forgotPassword);
+router.patch('/resetpassword/:token', AuthController.resetPassword);
 
 // Protected routes (require authentication)
 router.use(authMiddleware);
