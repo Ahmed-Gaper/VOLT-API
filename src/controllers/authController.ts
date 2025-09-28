@@ -62,12 +62,15 @@ export class AuthController {
       await user.save();
 
       const token: string = AuthController.signToken(user._id, user.email);
+      const refreshToken: string = user.createRefreshToken();
+      await user.save();
 
       res.status(201).json({
         success: true,
         message: 'Account created successfully.',
         data: {
           token,
+          refreshToken,
           user: {
             id: user._id,
             username: user.username,
@@ -133,12 +136,15 @@ export class AuthController {
       }
 
       const token: string = AuthController.signToken(user._id, user.email);
+      const refreshToken: string = user.createRefreshToken();
+      await user.save();
 
       res.json({
         success: true,
         message: 'Login successful',
         data: {
           token,
+          refreshToken,
           user: {
             id: user._id,
             username: user.username,
@@ -350,6 +356,79 @@ export class AuthController {
       res.status(500).json({
         success: false,
         message: 'Invalid or expired reset token',
+      });
+    }
+  }
+
+  static async refreshToken(req: Request, res: Response) {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Refresh token is required',
+        });
+      }
+
+      const decoded = jwt.verify(refreshToken, config.JWT_REFRESH_SECRET) as {
+        id: string;
+        email: string;
+      };
+
+      const user = await User.findById(decoded.id);
+      if (!user || !user.isRefreshTokenValid(refreshToken)) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid or expired refresh token',
+        });
+      }
+
+      const newAccessToken = AuthController.signToken(user._id, user.email);
+      const newRefreshToken = user.createRefreshToken();
+      await user.save();
+
+      res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: {
+          token: newAccessToken,
+          refreshToken: newRefreshToken,
+        },
+      });
+    } catch (error) {
+      console.error('Refresh token error:', error);
+      res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token',
+      });
+    }
+  }
+
+  static async logout(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated',
+        });
+      }
+
+      await User.findByIdAndUpdate(userId, {
+        $unset: { refreshToken: 1, refreshTokenExpires: 1 },
+      });
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
       });
     }
   }
