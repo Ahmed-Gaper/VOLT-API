@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/user.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 import { config } from '../config/config.js';
+import { sendEmail } from '../utils/email.js';
+import crypto from 'crypto';
 
 export class AuthController {
   private static signToken(id: unknown, email: string): string {
@@ -242,6 +244,112 @@ export class AuthController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
+      });
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      const user = await User.findOne({ email });
+      if (!user) {
+        // Don't reveal whether email exists or not
+        return res.json({
+          success: true,
+          message: 'If an account with that email exists, a reset link has been sent',
+        });
+      }
+
+      const resetToken: string = user.createPasswordResetToken();
+
+      await user.save({ validateBeforeSave: false });
+
+      const resetURL = `${req.protocol}://${req.get(
+        'host'
+      )}/api/v1/users/resetpassword/${resetToken}`;
+
+      const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
+
+      try {
+        await sendEmail({
+          email: req.body.email,
+          subject: 'Your password reset token(valid for 10 minu)',
+          message,
+        });
+
+        res.status(201).json({
+          status: 'success',
+          message: 'Token sent to email',
+        });
+      } catch (error) {
+        user.passwordResetToken = '';
+        user.passwordResetExpires = undefined;
+        console.error('Sent token to email error:', error);
+
+        res.status(404).json({
+          status: 'fail',
+          message: 'Internal server error',
+        });
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response) {
+    try {
+      const { newPassword, confirmPassword } = req.body;
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Passwords do not match',
+        });
+      }
+
+      if (!req.params.token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Reset token is required',
+        });
+      }
+
+      const hashedToken = crypto
+        .createHash('sha256')
+        .update(req.params.token as string)
+        .digest('hex');
+
+      const user = await User.findOne({
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { $gt: Date.now() },
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token is invalid or has expired',
+        });
+      }
+
+      user.password = newPassword;
+      user.passwordResetToken = '';
+      user.passwordResetExpires = undefined;
+      await user.save();
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully',
+      });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Invalid or expired reset token',
       });
     }
   }
