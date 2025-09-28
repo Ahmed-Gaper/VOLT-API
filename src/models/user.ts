@@ -1,6 +1,9 @@
 import { Schema, model, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import ms from 'ms';
+import { config } from '../config/config.js';
 export interface IUser extends Document {
   username: string;
   email: string;
@@ -20,9 +23,13 @@ export interface IUser extends Document {
   updatedAt: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date | undefined;
+  refreshToken?: string;
+  refreshTokenExpires?: Date;
 
   comparePassword(candidatePassword: string): Promise<boolean>;
   createPasswordResetToken(): string;
+  createRefreshToken(): string;
+  isRefreshTokenValid(token: string): boolean;
 }
 
 const userSchema = new Schema<IUser>(
@@ -99,6 +106,8 @@ const userSchema = new Schema<IUser>(
     ],
     passwordResetToken: String,
     passwordResetExpires: { type: Date, required: false },
+    refreshToken: String,
+    refreshTokenExpires: Date,
   },
   {
     timestamps: true,
@@ -134,6 +143,26 @@ userSchema.methods.createPasswordResetToken = function (): string {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000; //current time + 10 minutes in milliseconds
 
   return resetToken;
+};
+
+userSchema.methods.createRefreshToken = function (): string {
+  const refreshToken = jwt.sign({ id: this._id, email: this.email }, config.JWT_REFRESH_SECRET, {
+    expiresIn: config.JWT_REFRESH_EXPIRES_IN,
+  });
+
+  this.refreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  this.refreshTokenExpires = new Date(Date.now() + ms(config.JWT_REFRESH_EXPIRES_IN));
+
+  return refreshToken;
+};
+
+userSchema.methods.isRefreshTokenValid = function (token: string): boolean {
+  if (!this.refreshToken || !this.refreshTokenExpires) {
+    return false;
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  return this.refreshToken === hashedToken && this.refreshTokenExpires > Date.now();
 };
 
 export const User = model<IUser>('User', userSchema);

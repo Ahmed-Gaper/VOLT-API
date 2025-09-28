@@ -3,6 +3,7 @@ import type { Application, Request, Response } from 'express';
 import { config } from './config/config.js';
 import connectDB from './config/database.js';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import { authRoutes } from './routes/authRoutes.js';
 
 const app: Application = express();
@@ -14,6 +15,7 @@ if (config.NODE_ENV === 'development') {
 connectDB();
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.get('/api/health', (req: Request, res: Response) => {

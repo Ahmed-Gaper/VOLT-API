@@ -17,6 +17,8 @@ export interface Config {
   DB_NAME: string;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: ms.StringValue;
+  JWT_REFRESH_SECRET: string;
+  JWT_REFRESH_EXPIRES_IN: ms.StringValue;
   EMAIL_HOST: string;
   EMAIL_PORT: string;
   EMAIL_USERNAME: string;
@@ -32,6 +34,8 @@ export const config: Config = {
   }?${process.env.DATABASE_URL!.split('?')[1]}`,
   JWT_SECRET: process.env.JWT_SECRET || 'default-jwt-secret',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN! as ms.StringValue,
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
+  JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN! as ms.StringValue,
   EMAIL_HOST: process.env.EMAIL_HOST!,
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
