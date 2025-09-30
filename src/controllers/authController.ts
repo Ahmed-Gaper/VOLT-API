@@ -4,8 +4,8 @@ import { User } from '../models/user.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 import { config } from '../config/config.js';
 import { sendEmail } from '../utils/email.js';
-import { OAuthService } from '../services/oauthService.js';
 import crypto from 'crypto';
+import { OAuthService } from '../services/oauthService.js';
 
 export class AuthController {
   private static signToken(id: unknown, email: string): string {
@@ -13,6 +13,135 @@ export class AuthController {
       expiresIn: config.JWT_EXPIRES_IN,
     });
     return token;
+  }
+
+  // Social Authentication Methods
+  static async googleLogin(req: Request, res: Response) {
+    try {
+      const { accessToken } = req.body;
+
+      if (!accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Access token is required',
+        });
+      }
+
+      const socialData = await OAuthService.verifyGoogleToken(accessToken);
+      if (!socialData) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid Google token',
+        });
+      }
+
+      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
+
+      const token = AuthController.signToken(user._id, user.email);
+      const refreshToken = user.createRefreshToken();
+      await user.save();
+
+      const statusCode = isNewUser ? 201 : 200;
+      res.status(statusCode).json({
+        success: true,
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        data: {
+          token,
+          refreshToken,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+            authProvider: user.authProvider,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Google login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async facebookLogin(req: Request, res: Response) {
+    try {
+      const { accessToken } = req.body;
+
+      if (!accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Access token is required',
+        });
+      }
+
+      const socialData = await OAuthService.verifyFacebookToken(accessToken);
+      if (!socialData) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid Facebook token',
+        });
+      }
+
+      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
+
+      const token = AuthController.signToken(user._id, user.email);
+      const refreshToken = user.createRefreshToken();
+      await user.save();
+
+      const statusCode = isNewUser ? 201 : 200;
+      res.status(statusCode).json({
+        success: true,
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        data: {
+          token,
+          refreshToken,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+            authProvider: user.authProvider,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async getOAuthUrls(req: Request, res: Response) {
+    try {
+      const urls = OAuthService.getOAuthUrls();
+      res.status(200).json({
+        success: true,
+        data: urls,
+      });
+    } catch (error) {
+      console.error('Get OAuth URLs error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
   }
 
   static async signUp(req: Request, res: Response) {
@@ -169,88 +298,6 @@ export class AuthController {
       res.status(500).json({
         success: false,
         message: errorMessage,
-      });
-    }
-  }
-
-  static async completeProfile(req: AuthRequest, res: Response) {
-    try {
-      const { displayName, dateOfBirth, country, bio } = req.body;
-      const userId = req.userId;
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      // Update user profile
-      user.displayName = displayName;
-      user.country = country;
-      user.dateOfBirth = dateOfBirth && new Date(dateOfBirth);
-      user.bio = bio;
-
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Profile information updated successfully',
-        data: {
-          user: {
-            id: user._id,
-            displayName: user.displayName,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Complete profile error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-
-  static async uploadProfilePicture(req: AuthRequest, res: Response) {
-    try {
-      const userId = req.userId;
-      const profilePicture = '';
-
-      if (!profilePicture) {
-        return res.status(400).json({
-          success: false,
-          message: 'Profile picture is required',
-        });
-      }
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      user.profilePicture = profilePicture;
-      await user.save();
-
-      res.status(200).json({
-        success: true,
-        message: 'Profile picture uploaded successfully',
-        data: {
-          user: {
-            id: user._id,
-            profilePicture: user.profilePicture,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Upload profile picture error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
       });
     }
   }
@@ -421,7 +468,7 @@ export class AuthController {
         $unset: { refreshToken: 1, refreshTokenExpires: 1 },
       });
 
-      res.json({
+      res.status(200).json({
         success: true,
         message: 'Logged out successfully',
       });
@@ -434,35 +481,40 @@ export class AuthController {
     }
   }
 
-  static async googleLogin(req: Request, res: Response) {
+  static async updatePassword(req: AuthRequest, res: Response) {
     try {
-      const { accessToken } = req.body;
+      const user = await User.findById(req.userId).select('+password');
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
 
-      if (!accessToken) {
+      const correct = await user.comparePassword(req.body.passwordCurrent);
+
+      if (!correct) {
         return res.status(400).json({
           success: false,
-          message: 'Access token is required',
+          message: 'Your current password is wrong',
         });
       }
-
-      const socialData = await OAuthService.verifyGoogleToken(accessToken);
-      if (!socialData) {
-        return res.status(401).json({
+      if (req.body.password !== req.body.confirmPassword) {
+        return res.status(400).json({
           success: false,
-          message: 'Invalid Google token',
+          message: 'Passwords do not match',
         });
       }
 
-      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
+      user.password = req.body.password;
 
-      const token = AuthController.signToken(user._id, user.email);
-      const refreshToken = user.createRefreshToken();
+      const token: string = AuthController.signToken(user._id, user.email);
+      const refreshToken: string = user.createRefreshToken();
       await user.save();
 
-      const statusCode = isNewUser ? 201 : 200;
-      res.status(statusCode).json({
+      res.status(201).json({
         success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        message: 'Password updated successfully',
         data: {
           token,
           refreshToken,
@@ -477,84 +529,11 @@ export class AuthController {
             ...(user.profilePicture && { profilePicture: user.profilePicture }),
             role: user.role,
             isVerified: user.isVerified,
-            authProvider: user.authProvider,
           },
         },
       });
     } catch (error) {
-      console.error('Google login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-
-  static async facebookLogin(req: Request, res: Response) {
-    try {
-      const { accessToken } = req.body;
-
-      if (!accessToken) {
-        return res.status(400).json({
-          success: false,
-          message: 'Access token is required',
-        });
-      }
-
-      const socialData = await OAuthService.verifyFacebookToken(accessToken);
-      if (!socialData) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid Facebook token',
-        });
-      }
-
-      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
-
-      const token = AuthController.signToken(user._id, user.email);
-      const refreshToken = user.createRefreshToken();
-      await user.save();
-
-      const statusCode = isNewUser ? 201 : 200;
-      res.status(statusCode).json({
-        success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
-        data: {
-          token,
-          refreshToken,
-          user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            ...(user.country && { country: user.country }),
-            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
-            ...(user.bio && { bio: user.bio }),
-            ...(user.profilePicture && { profilePicture: user.profilePicture }),
-            role: user.role,
-            isVerified: user.isVerified,
-            authProvider: user.authProvider,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Facebook login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-
-  static async getOAuthUrls(req: Request, res: Response) {
-    try {
-      const urls = OAuthService.getOAuthUrls();
-      res.status(200).json({
-        success: true,
-        data: urls,
-      });
-    } catch (error) {
-      console.error('Get OAuth URLs error:', error);
+      console.error('Update password error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
