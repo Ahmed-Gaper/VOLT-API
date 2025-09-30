@@ -4,13 +4,15 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import ms from 'ms';
 import { config } from '../config/config.js';
+import { Query } from 'mongoose';
+
 export interface IUser extends Document {
   username: string;
   email: string;
   password?: string; // Optional because social login users won't have it
   displayName: string;
   country?: string;
-  dateOfBirth?: Date;
+  dateOfBirth?: Date | undefined;
   bio?: string;
   profilePicture?: string;
   authProvider: 'local' | 'google' | 'facebook' | 'apple';
@@ -25,6 +27,8 @@ export interface IUser extends Document {
   passwordResetExpires?: Date | undefined;
   refreshToken?: string;
   refreshTokenExpires?: Date;
+  active: boolean;
+  passwordChangedAt?: Date;
 
   comparePassword(candidatePassword: string): Promise<boolean>;
   createPasswordResetToken(): string;
@@ -104,10 +108,15 @@ const userSchema = new Schema<IUser>(
         ref: 'User',
       },
     ],
+    active: {
+      type: Boolean,
+      default: true,
+    },
     passwordResetToken: String,
     passwordResetExpires: { type: Date, required: false },
     refreshToken: String,
     refreshTokenExpires: Date,
+    passwordChangedAt: Date,
   },
   {
     timestamps: true,
@@ -126,6 +135,20 @@ userSchema.pre('save', async function (next) {
   } catch (error) {
     next(error as Error);
   }
+});
+
+userSchema.pre('save', function (next) {
+  if (!this.isModified('password') || this.isNew) {
+    return next();
+  }
+
+  this.passwordChangedAt = new Date(Date.now() - 1000); //abstract one second
+  return next();
+});
+
+userSchema.pre(/^find/, function (next) {
+  (this as Query<Record<string, unknown>, IUser>).find({ active: true });
+  next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {

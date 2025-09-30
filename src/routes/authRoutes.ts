@@ -13,8 +13,7 @@ router.post('/refresh-token', AuthController.refreshToken);
 
 // Protected routes (require authentication)
 router.use(authMiddleware);
-router.post('/logout', AuthController.logout);
-router.patch('/profile', requireAuth, AuthController.completeProfile);
-router.post('/profile-picture', requireAuth, AuthController.uploadProfilePicture);
+router.post('/logout', requireAuth, AuthController.logout);
+router.patch('/password', requireAuth, AuthController.updatePassword);
 
 export const authRoutes = router;

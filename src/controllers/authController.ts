@@ -139,7 +139,7 @@ export class AuthController {
       const refreshToken: string = user.createRefreshToken();
       await user.save();
 
-      res.json({
+      res.status(200).json({
         success: true,
         message: 'Login successful',
         data: {
@@ -168,88 +168,6 @@ export class AuthController {
       res.status(500).json({
         success: false,
         message: errorMessage,
-      });
-    }
-  }
-
-  static async completeProfile(req: AuthRequest, res: Response) {
-    try {
-      const { displayName, dateOfBirth, country, bio } = req.body;
-      const userId = req.userId;
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      // Update user profile
-      user.displayName = displayName;
-      user.country = country;
-      user.dateOfBirth = dateOfBirth && new Date(dateOfBirth);
-      user.bio = bio;
-
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Profile information updated successfully',
-        data: {
-          user: {
-            id: user._id,
-            displayName: user.displayName,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Complete profile error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
-    }
-  }
-
-  static async uploadProfilePicture(req: AuthRequest, res: Response) {
-    try {
-      const userId = req.userId;
-      const profilePicture = '';
-
-      if (!profilePicture) {
-        return res.status(400).json({
-          success: false,
-          message: 'Profile picture is required',
-        });
-      }
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-      }
-
-      user.profilePicture = profilePicture;
-      await user.save();
-
-      res.json({
-        success: true,
-        message: 'Profile picture uploaded successfully',
-        data: {
-          user: {
-            id: user._id,
-            profilePicture: user.profilePicture,
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Upload profile picture error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
       });
     }
   }
@@ -420,12 +338,72 @@ export class AuthController {
         $unset: { refreshToken: 1, refreshTokenExpires: 1 },
       });
 
-      res.json({
+      res.status(200).json({
         success: true,
         message: 'Logged out successfully',
       });
     } catch (error) {
       console.error('Logout error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async updatePassword(req: AuthRequest, res: Response) {
+    try {
+      const user = await User.findById(req.userId).select('+password');
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const correct = await user.comparePassword(req.body.passwordCurrent);
+
+      if (!correct) {
+        return res.status(400).json({
+          success: false,
+          message: 'Your current password is wrong',
+        });
+      }
+      if (req.body.password !== req.body.confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Passwords do not match',
+        });
+      }
+
+      user.password = req.body.password;
+
+      const token: string = AuthController.signToken(user._id, user.email);
+      const refreshToken: string = user.createRefreshToken();
+      await user.save();
+
+      res.status(201).json({
+        success: true,
+        message: 'Password updated successfully',
+        data: {
+          token,
+          refreshToken,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Update password error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
