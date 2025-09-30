@@ -20,13 +20,19 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.2",
-    "nodemailer": "^7.0.6"
+    "nodemailer": "^7.0.6",
+    "passport": "^0.7.0",
+    "passport-apple": "^2.0.2",
+    "passport-facebook": "^3.0.0",
+    "passport-google-oauth20": "^2.0.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
@@ -35,6 +41,9 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.5.2",
     "@types/nodemailer": "^7.0.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-facebook": "^3.0.3",
+    "@types/passport-google-oauth20": "^2.0.16",
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.44.1",
     "eslint": "^9.36.0",

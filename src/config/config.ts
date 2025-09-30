@@ -23,6 +23,15 @@ export interface Config {
   EMAIL_PORT: string;
   EMAIL_USERNAME: string;
   EMAIL_PASSWORD: string;
+  // OAuth Configuration
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  FACEBOOK_APP_ID: string;
+  FACEBOOK_APP_SECRET: string;
+  APPLE_CLIENT_ID: string;
+  APPLE_TEAM_ID: string;
+  APPLE_KEY_ID: string;
+  APPLE_PRIVATE_KEY: string;
 }
 
 export const config: Config = {
@@ -40,4 +49,13 @@ export const config: Config = {
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD!,
+  // OAuth Configuration
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID!,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET!,
+  FACEBOOK_APP_ID: process.env.FACEBOOK_APP_ID!,
+  FACEBOOK_APP_SECRET: process.env.FACEBOOK_APP_SECRET!,
+  APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID!,
+  APPLE_TEAM_ID: process.env.APPLE_TEAM_ID!,
+  APPLE_KEY_ID: process.env.APPLE_KEY_ID!,
+  APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY!,
 };

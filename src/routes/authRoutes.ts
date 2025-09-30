@@ -11,6 +11,11 @@ router.post('/forgotPassword', AuthController.forgotPassword);
 router.patch('/resetpassword/:token', AuthController.resetPassword);
 router.post('/refresh-token', AuthController.refreshToken);
 
+// Social Authentication routes (Google and Facebook)
+router.post('/google', AuthController.googleLogin);
+router.post('/facebook', AuthController.facebookLogin);
+router.get('/oauth-urls', AuthController.getOAuthUrls);
+
 // Protected routes (require authentication)
 router.use(authMiddleware);
 router.post('/logout', AuthController.logout);
