@@ -4,7 +4,9 @@ import { config } from './config/config.js';
 import connectDB from './config/database.js';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import { authRoutes } from './routes/authRoutes.js';
+import './config/passport.js';
 import { userRoutes } from './routes/userRoutes.js';
 
 const app: Application = express();
@@ -17,6 +19,7 @@ connectDB();
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // Routes
 app.get('/api/health', (req: Request, res: Response) => {
