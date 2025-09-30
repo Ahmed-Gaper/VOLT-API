@@ -5,6 +5,7 @@ import type { AuthRequest } from '../middleware/authMiddleware.js';
 import { config } from '../config/config.js';
 import { sendEmail } from '../utils/email.js';
 import crypto from 'crypto';
+import { OAuthService } from '../services/oauthService.js';
 
 export class AuthController {
   private static signToken(id: unknown, email: string): string {
@@ -12,6 +13,135 @@ export class AuthController {
       expiresIn: config.JWT_EXPIRES_IN,
     });
     return token;
+  }
+
+  // Social Authentication Methods
+  static async googleLogin(req: Request, res: Response) {
+    try {
+      const { accessToken } = req.body;
+
+      if (!accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Access token is required',
+        });
+      }
+
+      const socialData = await OAuthService.verifyGoogleToken(accessToken);
+      if (!socialData) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid Google token',
+        });
+      }
+
+      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
+
+      const token = AuthController.signToken(user._id, user.email);
+      const refreshToken = user.createRefreshToken();
+      await user.save();
+
+      const statusCode = isNewUser ? 201 : 200;
+      res.status(statusCode).json({
+        success: true,
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        data: {
+          token,
+          refreshToken,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+            authProvider: user.authProvider,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Google login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async facebookLogin(req: Request, res: Response) {
+    try {
+      const { accessToken } = req.body;
+
+      if (!accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Access token is required',
+        });
+      }
+
+      const socialData = await OAuthService.verifyFacebookToken(accessToken);
+      if (!socialData) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid Facebook token',
+        });
+      }
+
+      const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
+
+      const token = AuthController.signToken(user._id, user.email);
+      const refreshToken = user.createRefreshToken();
+      await user.save();
+
+      const statusCode = isNewUser ? 201 : 200;
+      res.status(statusCode).json({
+        success: true,
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        data: {
+          token,
+          refreshToken,
+          user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            ...(user.country && { country: user.country }),
+            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+            ...(user.bio && { bio: user.bio }),
+            ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
+            authProvider: user.authProvider,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async getOAuthUrls(req: Request, res: Response) {
+    try {
+      const urls = OAuthService.getOAuthUrls();
+      res.status(200).json({
+        success: true,
+        data: urls,
+      });
+    } catch (error) {
+      console.error('Get OAuth URLs error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
   }
 
   static async signUp(req: Request, res: Response) {
