@@ -191,13 +191,123 @@ export class AuthController {
 
       await user.save();
 
+      res.status(201).json({
+        success: true,
+        message: 'Account created successfully. Please login to verify your email.',
+      });
+    } catch (error) {
+      console.error('Signup error:', error);
+      let errorMessage = 'Internal server error';
+      if (error instanceof Error) {
+        errorMessage = `Internal server error: ${error.message}`;
+      }
+      res.status(500).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
+  }
+
+  static async resendVerificationOtp(req: Request, res: Response) {
+    try {
+      const { email } = req.body as { email?: string };
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        return res
+          .status(200)
+          .json({ success: true, message: 'If an account exists, a message will be sent' });
+      }
+      if (user.isVerified) {
+        return res.status(200).json({ success: true, message: 'Email already verified' });
+      }
+
+      const emailOtp = (
+        user as unknown as { createEmailVerificationOtp: () => string }
+      ).createEmailVerificationOtp();
+      await user.save({ validateBeforeSave: false });
+
+      const message = `Your email verification code is: ${emailOtp}\nThis code expires in 10 minutes.`;
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Your Volt email verification code',
+          message,
+        });
+        return res.json({ success: true, message: 'Verification code sent' });
+      } catch (_err) {
+        user.emailVerificationOtp = '';
+        user.emailVerificationOtpExpires = undefined;
+        await user.save({ validateBeforeSave: false });
+        return res
+          .status(500)
+          .json({ success: false, message: 'Failed to send verification code' });
+      }
+    } catch (error) {
+      console.error('Resend verification OTP error:', error);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  static async completeLoginWithOtp(req: Request, res: Response) {
+    try {
+      const { email, otp } = req.body as { email?: string; otp?: string };
+      if (!email || !otp) {
+        return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      if (
+        user.emailVerificationOtpLockedUntil &&
+        user.emailVerificationOtpLockedUntil > new Date()
+      ) {
+        return res
+          .status(429)
+          .json({ success: false, message: 'Too many attempts. Try again later.' });
+      }
+
+      if (!user.emailVerificationOtp || !user.emailVerificationOtpExpires) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      const hashedOtp = crypto.createHash('sha256').update(String(otp)).digest('hex');
+      const isValid =
+        user.emailVerificationOtp === hashedOtp && user.emailVerificationOtpExpires > new Date();
+
+      if (!isValid) {
+        user.emailVerificationOtpAttempts = (user.emailVerificationOtpAttempts || 0) + 1;
+        if (user.emailVerificationOtpAttempts >= 5) {
+          user.emailVerificationOtpLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+          user.emailVerificationOtpAttempts = 0;
+        }
+        await user.save({ validateBeforeSave: false });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      // Mark as verified and complete login
+      user.isVerified = true;
+      user.emailVerificationOtp = '';
+      user.emailVerificationOtpExpires = undefined;
+      user.emailVerificationOtpAttempts = 0;
+      user.emailVerificationOtpLockedUntil = undefined;
+      await user.save({ validateBeforeSave: false });
+
       const token: string = AuthController.signToken(user._id, user.email);
       const refreshToken: string = user.createRefreshToken();
       await user.save();
 
-      res.status(201).json({
+      res.status(200).json({
         success: true,
-        message: 'Account created successfully.',
+        message: 'Login successful',
         data: {
           token,
           refreshToken,
@@ -210,19 +320,14 @@ export class AuthController {
             ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
             ...(user.bio && { bio: user.bio }),
             ...(user.profilePicture && { profilePicture: user.profilePicture }),
+            role: user.role,
+            isVerified: user.isVerified,
           },
         },
       });
     } catch (error) {
-      console.error('Signup error:', error);
-      let errorMessage = 'Internal server error';
-      if (error instanceof Error) {
-        errorMessage = `Internal server error: ${error.message}`;
-      }
-      res.status(500).json({
-        success: false,
-        message: errorMessage,
-      });
+      console.error('Complete login with OTP error:', error);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
@@ -262,6 +367,15 @@ export class AuthController {
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials',
+        });
+      }
+
+      if (!user.isVerified) {
+        return res.status(200).json({
+          success: true,
+          needsVerification: true,
+          message: 'Email verification required. Please verify your email to continue.',
+          email: user.email,
         });
       }
 
