@@ -4,16 +4,19 @@ Node.js/Express TypeScript API with JWT authentication, MongoDB via Mongoose, an
 
 ### Getting Started
 
-1) Prerequisites
+1. Prerequisites
+
 - Node.js 18+
 - MongoDB connection string
 
-2) Install dependencies
+2. Install dependencies
+
 ```bash
 npm install
 ```
 
-3) Configure environment
+3. Configure environment
+
 - Copy `config.env.example` to `config.env` in the project root
 - Fill in values:
   - `DATABASE_URL`, `DB_NAME`
@@ -22,19 +25,24 @@ npm install
   - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`
   - `PORT` (optional, defaults to 3000 via config)
 
-4) Run in development
+4. Run in development
+
 ```bash
 npm run start:dev
 ```
+
 Server will start and log the health URL: `http://localhost:<PORT>/api/health`.
 
-5) Build for production
+5. Build for production
+
 ```bash
 npm run build
 ```
+
 Outputs compiled files to `dist/`.
 
 ### NPM Scripts
+
 - `start:dev`: Run the server with live reload (tsx)
 - `build`: Type-check and compile to `dist`
 - `typecheck`: TypeScript type checking
@@ -43,7 +51,9 @@ Outputs compiled files to `dist/`.
 - `clean`: Remove `dist`
 
 ### Configuration
+
 The app loads `config.env` from the project root via `src/config/config.ts`. Key values:
+
 - `PORT`: Server port
 - `NODE_ENV`: `development` or `production`
 - `DATABASE_URL`: MongoDB connection string (base + query)
@@ -53,6 +63,7 @@ The app loads `config.env` from the project root via `src/config/config.ts`. Key
 - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`: SMTP settings
 
 ### Project Structure
+
 ```
 src/
   app.ts                 Express app, routes, middleware
@@ -66,4 +77,3 @@ src/
   routes/                Route definitions
   utils/                 Utilities (email)
 ```
-
