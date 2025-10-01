@@ -8,7 +8,8 @@ const router = Router();
 router.post('/signup', AuthController.signUp);
 router.post('/login', AuthController.login);
 router.post('/forgotPassword', AuthController.forgotPassword);
-router.patch('/resetpassword/:token', AuthController.resetPassword);
+router.post('/verify-otp', AuthController.verifyOtp);
+router.post('/resetpassword', AuthController.resetPassword);
 router.post('/refresh-token', AuthController.refreshToken);
 
 // Social Authentication routes (Google and Facebook)

@@ -315,33 +315,45 @@ export class AuthController {
         });
       }
 
-      const resetToken: string = user.createPasswordResetToken();
+      // OTP-only flow
+      const otp: string = (
+        user as unknown as { createPasswordResetOtp: () => string }
+      ).createPasswordResetOtp();
+      // Clear legacy token fields to avoid mixed flows
+      user.passwordResetToken = '';
+      user.passwordResetExpires = undefined;
 
       await user.save({ validateBeforeSave: false });
 
-      const resetURL = `${req.protocol}://${req.get(
-        'host'
-      )}/api/v1/users/resetpassword/${resetToken}`;
-
-      const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
+      const message =
+        `Use this 6-digit OTP within 10 minutes: ${otp}\n` +
+        `Then call POST /api/auth/verify-otp with { email, otp }.\n` +
+        `On success, you'll receive a short-lived reset token to use with POST /api/auth/resetpassword (body: { token, newPassword, confirmPassword }).\n` +
+        `If you didn't request this, ignore this email.`;
 
       try {
         await sendEmail({
           email: req.body.email,
-          subject: 'Your password reset token(valid for 10 minu)',
+          subject: 'Your password reset token (valid for 10 minutes)',
           message,
         });
 
         res.status(201).json({
           status: 'success',
-          message: 'Token sent to email',
+          message: 'OTP sent to email',
         });
       } catch (error) {
-        user.passwordResetToken = '';
-        user.passwordResetExpires = undefined;
+        user.passwordResetOtp = '';
+        user.passwordResetOtpExpires = undefined;
         console.error('Sent token to email error:', error);
 
-        res.status(404).json({
+        try {
+          await user.save({ validateBeforeSave: false });
+        } catch (saveError) {
+          console.error('Failed to clear reset token after email error:', saveError);
+        }
+
+        res.status(500).json({
           status: 'fail',
           message: 'Internal server error',
         });
@@ -357,7 +369,26 @@ export class AuthController {
 
   static async resetPassword(req: Request, res: Response) {
     try {
-      const { newPassword, confirmPassword } = req.body;
+      // OTP-only flow expects a body token (short-lived) rather than URL token
+      const { token, newPassword, confirmPassword } = req.body as {
+        token?: string;
+        newPassword?: string;
+        confirmPassword?: string;
+      };
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Reset token is required',
+        });
+      }
+
+      if (!newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password and confirm password are required',
+        });
+      }
 
       if (newPassword !== confirmPassword) {
         return res.status(400).json({
@@ -366,33 +397,25 @@ export class AuthController {
         });
       }
 
-      if (!req.params.token) {
-        return res.status(400).json({
-          success: false,
-          message: 'Reset token is required',
-        });
+      let payload: { id: string; email: string } | null = null;
+      try {
+        payload = jwt.verify(token, config.JWT_REFRESH_SECRET) as { id: string; email: string };
+      } catch (_) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
       }
 
-      const hashedToken = crypto
-        .createHash('sha256')
-        .update(req.params.token as string)
-        .digest('hex');
-
-      const user = await User.findOne({
-        passwordResetToken: hashedToken,
-        passwordResetExpires: { $gt: Date.now() },
-      });
+      const user = await User.findById(payload.id).select('+password');
 
       if (!user) {
         return res.status(400).json({
           success: false,
-          message: 'Token is invalid or has expired',
+          message: 'Invalid or expired reset token',
         });
       }
 
       user.password = newPassword;
-      user.passwordResetToken = '';
-      user.passwordResetExpires = undefined;
+      user.passwordResetOtp = '';
+      user.passwordResetOtpExpires = undefined;
       await user.save();
 
       res.json({
@@ -405,6 +428,57 @@ export class AuthController {
         success: false,
         message: 'Invalid or expired reset token',
       });
+    }
+  }
+
+  static async verifyOtp(req: Request, res: Response) {
+    try {
+      const { email, otp } = req.body as { email?: string; otp?: string };
+      if (!email || !otp) {
+        return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+      }
+
+      // Check lock
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      if (user.passwordResetOtpLockedUntil && user.passwordResetOtpLockedUntil > new Date()) {
+        return res
+          .status(429)
+          .json({ success: false, message: 'Too many attempts. Try again later.' });
+      }
+
+      if (!user.passwordResetOtp || !user.passwordResetOtpExpires) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      const hashedOtp = crypto.createHash('sha256').update(String(otp)).digest('hex');
+      const isValid =
+        user.passwordResetOtp === hashedOtp && user.passwordResetOtpExpires > new Date();
+
+      if (!isValid) {
+        user.passwordResetOtpAttempts = (user.passwordResetOtpAttempts || 0) + 1;
+        if (user.passwordResetOtpAttempts >= 5) {
+          user.passwordResetOtpLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+          user.passwordResetOtpAttempts = 0;
+        }
+        await user.save({ validateBeforeSave: false });
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+
+      // OTP valid, reset attempts and issue short-lived reset token (5 min)
+      user.passwordResetOtpAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+      const resetToken = jwt.sign({ id: user._id, email: user.email }, config.JWT_REFRESH_SECRET, {
+        expiresIn: '5m',
+      });
+      return res.json({ success: true, data: { token: resetToken } });
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
