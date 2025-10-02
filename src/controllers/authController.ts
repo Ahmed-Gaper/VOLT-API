@@ -6,13 +6,74 @@ import { config } from '../config/config.js';
 import { sendEmail } from '../utils/email.js';
 import crypto from 'crypto';
 import { OAuthService } from '../services/oauthService.js';
+import type { IUser } from '../models/user.js';
 
 export class AuthController {
-  private static signToken(id: unknown, email: string): string {
-    const token: string = jwt.sign({ id, email }, config.JWT_SECRET, {
+  private static signToken(id: IUser['_id'], email: string): string {
+    return jwt.sign({ id, email }, config.JWT_SECRET, {
       expiresIn: config.JWT_EXPIRES_IN,
     });
-    return token;
+  }
+
+  private static getUserResponse(user: IUser) {
+    return {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      displayName: user.displayName,
+      ...(user.country && { country: user.country }),
+      ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
+      ...(user.bio && { bio: user.bio }),
+      ...(user.profilePicture && { profilePicture: user.profilePicture }),
+      role: user.role,
+      isVerified: user.isVerified,
+      ...(user.authProvider && { authProvider: user.authProvider }),
+    };
+  }
+
+  private static async generateTokensAndSave(user: IUser) {
+    const token = AuthController.signToken(user._id, user.email);
+    const refreshToken = user.createRefreshToken();
+    await user.save();
+    return { token, refreshToken };
+  }
+
+  private static async sendAuthResponse(
+    res: Response,
+    user: IUser,
+    options: { statusCode?: number; message?: string; includeUser?: boolean } = {}
+  ) {
+    const { statusCode = 200, message = 'Success', includeUser = true } = options;
+
+    const { token, refreshToken } = await AuthController.generateTokensAndSave(user);
+
+    const cookieOptions = {
+      expires: new Date(Date.now() + config.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000),
+      httpOnly: true,
+    } as {
+      expires: Date;
+      httpOnly: boolean;
+      secure?: boolean;
+    };
+    if (config.NODE_ENV === 'production') {
+      cookieOptions.secure = true;
+    }
+    res.cookie('jwt', token, cookieOptions);
+
+    const data: {
+      token: string;
+      refreshToken: string;
+      user?: ReturnType<typeof AuthController.getUserResponse>;
+    } = { token, refreshToken };
+
+    if (includeUser) {
+      data.user = AuthController.getUserResponse(user);
+    }
+    res.status(statusCode).json({
+      success: true,
+      message,
+      data,
+    });
   }
 
   // Social Authentication Methods
@@ -37,32 +98,9 @@ export class AuthController {
 
       const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
 
-      const token = AuthController.signToken(user._id, user.email);
-      const refreshToken = user.createRefreshToken();
-      await user.save();
-
       const statusCode = isNewUser ? 201 : 200;
-      res.status(statusCode).json({
-        success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
-        data: {
-          token,
-          refreshToken,
-          user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            ...(user.country && { country: user.country }),
-            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
-            ...(user.bio && { bio: user.bio }),
-            ...(user.profilePicture && { profilePicture: user.profilePicture }),
-            role: user.role,
-            isVerified: user.isVerified,
-            authProvider: user.authProvider,
-          },
-        },
-      });
+      const message = isNewUser ? 'Account created successfully' : 'Login successful';
+      await AuthController.sendAuthResponse(res, user, { statusCode, message });
     } catch (error) {
       console.error('Google login error:', error);
       res.status(500).json({
@@ -93,32 +131,9 @@ export class AuthController {
 
       const { user, isNewUser } = await OAuthService.findOrCreateSocialUser(socialData);
 
-      const token = AuthController.signToken(user._id, user.email);
-      const refreshToken = user.createRefreshToken();
-      await user.save();
-
       const statusCode = isNewUser ? 201 : 200;
-      res.status(statusCode).json({
-        success: true,
-        message: isNewUser ? 'Account created successfully' : 'Login successful',
-        data: {
-          token,
-          refreshToken,
-          user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            ...(user.country && { country: user.country }),
-            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
-            ...(user.bio && { bio: user.bio }),
-            ...(user.profilePicture && { profilePicture: user.profilePicture }),
-            role: user.role,
-            isVerified: user.isVerified,
-            authProvider: user.authProvider,
-          },
-        },
-      });
+      const message = isNewUser ? 'Account created successfully' : 'Login successful';
+      await AuthController.sendAuthResponse(res, user, { statusCode, message });
     } catch (error) {
       console.error('Facebook login error:', error);
       res.status(500).json({
@@ -540,7 +555,7 @@ export class AuthController {
       console.error('Reset password error:', error);
       res.status(500).json({
         success: false,
-        message: 'Invalid or expired reset token',
+        message: 'Internal server error', //TO DO
       });
     }
   }
@@ -696,29 +711,9 @@ export class AuthController {
 
       user.password = req.body.password;
 
-      const token: string = AuthController.signToken(user._id, user.email);
-      const refreshToken: string = user.createRefreshToken();
-      await user.save();
-
-      res.status(201).json({
-        success: true,
+      await AuthController.sendAuthResponse(res, user, {
+        statusCode: 200,
         message: 'Password updated successfully',
-        data: {
-          token,
-          refreshToken,
-          user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            ...(user.country && { country: user.country }),
-            ...(user.dateOfBirth && { dateOfBirth: user.dateOfBirth }),
-            ...(user.bio && { bio: user.bio }),
-            ...(user.profilePicture && { profilePicture: user.profilePicture }),
-            role: user.role,
-            isVerified: user.isVerified,
-          },
-        },
       });
     } catch (error) {
       console.error('Update password error:', error);

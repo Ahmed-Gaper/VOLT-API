@@ -19,6 +19,7 @@ export interface Config {
   JWT_EXPIRES_IN: ms.StringValue;
   JWT_REFRESH_SECRET: string;
   JWT_REFRESH_EXPIRES_IN: ms.StringValue;
+  JWT_COOKIE_EXPIRES_IN: number;
   EMAIL_HOST: string;
   EMAIL_PORT: string;
   EMAIL_USERNAME: string;
@@ -38,13 +39,12 @@ export const config: Config = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
   DB_NAME: process.env.DB_NAME!,
-  DATABASE_URL: `${process.env.DATABASE_URL!.split('?')[0]}${
-    process.env.DB_NAME
-  }?${process.env.DATABASE_URL!.split('?')[1]}`,
+  DATABASE_URL: `${process.env.DATABASE_URL!.split('?')[0]}${process.env.DB_NAME}?${process.env.DATABASE_URL!.split('?')[1]}`,
   JWT_SECRET: process.env.JWT_SECRET || 'default-jwt-secret',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN! as ms.StringValue,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN! as ms.StringValue,
+  JWT_COOKIE_EXPIRES_IN: parseInt(process.env.JWT_COOKIE_EXPIRES_IN || '90', 10),
   EMAIL_HOST: process.env.EMAIL_HOST!,
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
