@@ -5,23 +5,48 @@ import connectDB from './config/database.js';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import mongoSanitize from '@exortek/express-mongo-sanitize';
+import { xss } from 'express-xss-sanitizer';
+import hpp from 'hpp';
 import { authRoutes } from './routes/authRoutes.js';
-import './config/passport.js';
 import { userRoutes } from './routes/userRoutes.js';
+import './config/passport.js';
 
 const app: Application = express();
+
+// Connect to database
+connectDB();
+
+// Security middleware
+app.use(helmet()); // Set security-related HTTP headers
 
 if (config.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-connectDB();
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 100,
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+  },
+});
+app.use('/api/auth', limiter);
 
+// General middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// Routes
+// Security middleware
+app.use(mongoSanitize.default());
+app.use(xss()); // Prevent Cross-Site Scripting (XSS) attacks
+app.use(hpp()); // Protect against HTTP Parameter Pollution attacks
+
+// Health check route
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({
     success: true,

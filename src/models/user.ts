@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import ms from 'ms';
 import { config } from '../config/config.js';
 import { Query } from 'mongoose';
+import validator from 'validator';
 
 export interface IUser extends Document {
   username: string;
@@ -39,24 +40,27 @@ export interface IUser extends Document {
   createPasswordResetOtp(): string;
   createRefreshToken(): string;
   isRefreshTokenValid(token: string): boolean;
+  passwordChangedAfter(JWTTimestamp: number): Promise<boolean>;
 }
 
 const userSchema = new Schema<IUser>(
   {
     username: {
       type: String,
-      required: true,
+      required: [true, 'Username is required'],
       unique: true,
       trim: true,
-      minlength: 3,
-      maxlength: 30,
+      minlength: [3, 'Username must be at least 3 characters long'],
+      maxlength: [30, 'Username cannot exceed 30 characters'],
+      match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'],
     },
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required'],
       unique: true,
       trim: true,
       lowercase: true,
+      validate: [validator.isEmail, 'Please provide a valid email'],
     },
     password: {
       type: String,
@@ -64,41 +68,74 @@ const userSchema = new Schema<IUser>(
       required(this: IUser) {
         return this.authProvider === 'local';
       },
+      minlength: [8, 'Password must be at least 8 characters long'],
+      validate: [
+        validator.isStrongPassword,
+        'Password must be at least 8 characters and include a lowercase letter, an uppercase letter, a number, and a symbol.',
+      ],
     },
     displayName: {
       type: String,
-      required: true,
+      required: [true, 'Display name is required'],
       trim: true,
-      maxlength: 50,
+      minlength: [1, 'Display name cannot be empty'],
+      maxlength: [50, 'Display name cannot exceed 50 characters'],
     },
     country: {
       type: String,
     },
     dateOfBirth: {
       type: Date,
+      validate: {
+        validator(dob: Date) {
+          if (!dob) {
+            return true;
+          }
+
+          const minAge = 13;
+          const maxAge = 120;
+          const today = new Date();
+          const age = today.getFullYear() - dob.getFullYear();
+
+          return age >= minAge && age <= maxAge;
+        },
+        message: 'You must be at least 13 years old to use this platform',
+      },
     },
     bio: {
       type: String,
-      maxlength: 500,
+      maxlength: [500, 'Bio cannot exceed 500 characters'],
     },
     profilePicture: {
       type: String,
     },
     authProvider: {
       type: String,
-      enum: ['local', 'google', 'facebook', 'apple'],
+      enum: {
+        values: ['local', 'google', 'facebook', 'apple'],
+        message: 'Auth provider must be one of: local, google, facebook, apple',
+      },
       default: 'local',
     },
     socialId: {
       type: String,
-    },
-    isVerified: {
-      type: Boolean,
-      default: false,
+      validate: {
+        validator(socialId: string) {
+          // Social ID is required for social auth, not for local
+          if (this.authProvider === 'local') {
+            return true;
+          }
+          return !!socialId && socialId.length > 0;
+        },
+        message: 'Social ID is required for social authentication',
+      },
     },
     role: {
       type: String,
-      enum: ['viewer', 'streamer', 'admin'],
+      enum: {
+        values: ['viewer', 'streamer', 'admin'],
+        message: 'Role must be one of: viewer, streamer, admin',
+      },
       default: 'viewer',
     },
     followers: [
@@ -156,7 +193,7 @@ userSchema.pre('save', function (next) {
 });
 
 userSchema.pre(/^find/, function (next) {
-  (this as Query<Record<string, unknown>, IUser>).find({ active: true });
+  (this as Query<Record<string, unknown>, IUser>).find({ active: { $ne: false } });
   next();
 });
 
@@ -192,6 +229,15 @@ userSchema.methods.isRefreshTokenValid = function (token: string): boolean {
 
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
   return this.refreshToken === hashedToken && this.refreshTokenExpires > Date.now();
+};
+
+userSchema.methods.passwordChangedAfter = async function (JWTTimestamp: number) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = this.passwordChangedAt.getTime() / 1000;
+    // console.log(JWTTimestamp, changedTimestamp);
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
 };
 
 export const User = model<IUser>('User', userSchema);
