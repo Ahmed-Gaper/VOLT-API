@@ -24,8 +24,6 @@ export interface IUser extends Document {
   following: Schema.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
-  passwordResetToken?: string;
-  passwordResetExpires?: Date | undefined;
   refreshToken?: string;
   refreshTokenExpires?: Date;
   active: boolean;
@@ -40,7 +38,6 @@ export interface IUser extends Document {
   emailVerificationOtpLockedUntil?: Date | undefined;
 
   comparePassword(candidatePassword: string): Promise<boolean>;
-  createPasswordResetToken(): string;
   createPasswordResetOtp(): string;
   createRefreshToken(): string;
   isRefreshTokenValid(token: string): boolean;
@@ -159,8 +156,10 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: true,
     },
-    passwordResetToken: String,
-    passwordResetExpires: { type: Date, required: false },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     passwordResetOtp: String,
     passwordResetOtpExpires: { type: Date, required: false },
     passwordResetOtpAttempts: { type: Number, default: 0 },
@@ -213,13 +212,6 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.methods.createPasswordResetToken = function (): string {
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
-  return resetToken;
-};
-
 userSchema.methods.createRefreshToken = function (): string {
   const refreshToken = jwt.sign({ id: this._id, email: this.email }, config.JWT_REFRESH_SECRET, {
     expiresIn: config.JWT_REFRESH_EXPIRES_IN,
@@ -244,6 +236,13 @@ userSchema.methods.createEmailVerificationOtp = function (): string {
   const otp = String(Math.floor(100000 + Math.random() * 900000));
   this.emailVerificationOtp = crypto.createHash('sha256').update(otp).digest('hex');
   this.emailVerificationOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+  return otp;
+};
+
+userSchema.methods.createPasswordResetOtp = function (): string {
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  this.passwordResetOtp = crypto.createHash('sha256').update(otp).digest('hex');
+  this.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
   return otp;
 };
 

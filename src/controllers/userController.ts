@@ -69,9 +69,14 @@ export class UserController {
   static async uploadProfilePicture(req: AuthRequest, res: Response) {
     try {
       const userId = req.userId;
-      const profilePicture = '';
 
-      if (!profilePicture) {
+      // Handle profile picture upload
+      let profilePicturePath: string | undefined;
+      if (req.file) {
+        const s3File = req.file as Express.Multer.File & { location?: string };
+        // S3 storage sets location property to the public URL
+        profilePicturePath = s3File.location;
+      } else {
         return res.status(400).json({
           success: false,
           message: 'Profile picture is required',
@@ -86,7 +91,7 @@ export class UserController {
         });
       }
 
-      user.profilePicture = profilePicture;
+      user.profilePicture = profilePicturePath ?? '';
       await user.save();
 
       res.json({
