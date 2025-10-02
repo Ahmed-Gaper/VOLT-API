@@ -161,17 +161,8 @@ export class AuthController {
 
   static async signUp(req: Request, res: Response) {
     try {
-      const {
-        username,
-        email,
-        password,
-        confirmPassword,
-        displayName,
-        country,
-        dateOfBirth,
-        bio,
-        profilePicture,
-      } = req.body;
+      const { username, email, password, confirmPassword, displayName, country, dateOfBirth, bio } =
+        req.body;
 
       if (password !== confirmPassword) {
         return res.status(400).json({
@@ -191,6 +182,14 @@ export class AuthController {
         });
       }
 
+      // Handle profile picture upload
+      let profilePicturePath: string | undefined;
+      if (req.file) {
+        const s3File = req.file as Express.Multer.File & { location?: string };
+        // S3 storage sets location property to the public URL
+        profilePicturePath = s3File.location;
+      }
+
       const user = new User({
         username,
         email,
@@ -199,7 +198,7 @@ export class AuthController {
         ...(country?.trim() && { country }),
         ...(dateOfBirth && { dateOfBirth: new Date(dateOfBirth) }),
         ...(bio?.trim() && { bio }),
-        ...(profilePicture?.trim() && { profilePicture }),
+        ...(profilePicturePath && { profilePicture: profilePicturePath }),
       });
 
       console.log(user);
@@ -448,9 +447,6 @@ export class AuthController {
       const otp: string = (
         user as unknown as { createPasswordResetOtp: () => string }
       ).createPasswordResetOtp();
-      // Clear legacy token fields to avoid mixed flows
-      user.passwordResetToken = '';
-      user.passwordResetExpires = undefined;
 
       await user.save({ validateBeforeSave: false });
 

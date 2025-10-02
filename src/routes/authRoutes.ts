@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController.js';
 import { authMiddleware, requireAuth } from '../middleware/authMiddleware.js';
+import { upload } from '../middleware/uploadMiddleware.js';
 
 const router = Router();
 
 // Public routes
-router.post('/signup', AuthController.signUp);
+router.post('/signup', upload.single('profilePicture'), AuthController.signUp);
 router.post('/login', AuthController.login);
 router.post('/forgotPassword', AuthController.forgotPassword);
 router.post('/verify-otp', AuthController.verifyOtp);

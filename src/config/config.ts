@@ -33,6 +33,11 @@ export interface Config {
   APPLE_TEAM_ID: string;
   APPLE_KEY_ID: string;
   APPLE_PRIVATE_KEY: string;
+  //AWS Configuration
+  AWS_REGION: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  S3_BUCKET_NAME: string;
 }
 
 export const config: Config = {
@@ -58,4 +63,9 @@ export const config: Config = {
   APPLE_TEAM_ID: process.env.APPLE_TEAM_ID!,
   APPLE_KEY_ID: process.env.APPLE_KEY_ID!,
   APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY!,
+  //AWS Configuration
+  AWS_REGION: process.env.AWS_REGION!,
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID!,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
+  S3_BUCKET_NAME: process.env.S3_BUCKET_NAME!,
 };
