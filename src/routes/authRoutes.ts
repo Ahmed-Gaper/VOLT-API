@@ -11,6 +11,8 @@ router.post('/forgotPassword', AuthController.forgotPassword);
 router.post('/verify-otp', AuthController.verifyOtp);
 router.post('/resetpassword', AuthController.resetPassword);
 router.post('/refresh-token', AuthController.refreshToken);
+router.post('/resend-verification-otp', AuthController.resendVerificationOtp);
+router.post('/complete-login-otp', AuthController.completeLoginWithOtp);
 
 // Social Authentication routes (Google and Facebook)
 router.post('/google', AuthController.googleLogin);

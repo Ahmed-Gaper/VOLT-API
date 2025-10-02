@@ -34,12 +34,17 @@ export interface IUser extends Document {
   passwordResetOtpExpires?: Date | undefined;
   passwordResetOtpAttempts?: number;
   passwordResetOtpLockedUntil?: Date | undefined;
+  emailVerificationOtp?: string;
+  emailVerificationOtpExpires?: Date | undefined;
+  emailVerificationOtpAttempts?: number;
+  emailVerificationOtpLockedUntil?: Date | undefined;
 
   comparePassword(candidatePassword: string): Promise<boolean>;
   createPasswordResetToken(): string;
   createPasswordResetOtp(): string;
   createRefreshToken(): string;
   isRefreshTokenValid(token: string): boolean;
+  createEmailVerificationOtp(): string;
   passwordChangedAfter(JWTTimestamp: number): Promise<boolean>;
 }
 
@@ -163,6 +168,10 @@ const userSchema = new Schema<IUser>(
     refreshToken: String,
     refreshTokenExpires: Date,
     passwordChangedAt: Date,
+    emailVerificationOtp: String,
+    emailVerificationOtpExpires: { type: Date, required: false },
+    emailVerificationOtpAttempts: { type: Number, default: 0 },
+    emailVerificationOtpLockedUntil: { type: Date, required: false },
   },
   {
     timestamps: true,
@@ -229,6 +238,13 @@ userSchema.methods.isRefreshTokenValid = function (token: string): boolean {
 
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
   return this.refreshToken === hashedToken && this.refreshTokenExpires > Date.now();
+};
+
+userSchema.methods.createEmailVerificationOtp = function (): string {
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  this.emailVerificationOtp = crypto.createHash('sha256').update(otp).digest('hex');
+  this.emailVerificationOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+  return otp;
 };
 
 userSchema.methods.passwordChangedAfter = async function (JWTTimestamp: number) {
