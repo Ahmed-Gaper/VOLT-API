@@ -3,6 +3,34 @@ import { User } from '../models/user.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 
 export class UserController {
+  static async getProfile(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+
+      // Fetch user
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Profile retrieved successfully',
+        data: {
+          user,
+        },
+      });
+    } catch (error) {
+      console.error('Get profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
   static async updateProfile(req: AuthRequest, res: Response) {
     try {
       const userId = req.userId;
