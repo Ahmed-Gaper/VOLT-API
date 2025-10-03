@@ -15,7 +15,7 @@ export const sendEmail = async (options: { email: string; subject: string; messa
 
   // 2) Define the email options
   const emailOptions = {
-    from: 'VOLT <seifbe.dair2020@gmail.com>',
+    from: config.EMAIL_FROM,
     to: options.email,
     subject: options.subject,
     text: options.message,

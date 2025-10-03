@@ -24,6 +24,7 @@ export interface Config {
   EMAIL_PORT: string;
   EMAIL_USERNAME: string;
   EMAIL_PASSWORD: string;
+  EMAIL_FROM: string;
   // OAuth Configuration
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
@@ -54,6 +55,7 @@ export const config: Config = {
   EMAIL_PORT: process.env.EMAIL_PORT!,
   EMAIL_USERNAME: process.env.EMAIL_USERNAME!,
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD!,
+  EMAIL_FROM: process.env.EMAIL_FROM!,
   // OAuth Configuration
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID!,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET!,
