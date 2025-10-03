@@ -234,9 +234,7 @@ export class AuthController {
       const normalizedEmail = String(email).trim().toLowerCase();
       const user = await User.findOne({ email: normalizedEmail });
       if (!user) {
-        return res
-          .status(200)
-          .json({ success: true, message: 'If an account exists, a message will be sent' });
+        return res.status(404).json({ success: false, message: 'Account not found' });
       }
       if (user.isVerified) {
         return res.status(200).json({ success: true, message: 'Email already verified' });
