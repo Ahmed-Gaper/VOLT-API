@@ -1,9 +1,8 @@
 name: Continuous Deployment to EC2
-
 on:
   push:
     branches:
-      - master 
+      - master
 
 jobs:
   deploy:
@@ -20,7 +19,7 @@ jobs:
         username: ubuntu
         key: ${{ secrets.DEPLOY_SSH_KEY }}
         script: |
-          cd /home/ubuntu/VOLT-API  
+          cd /home/ubuntu/VOLT-API
           git checkout -- .
           git pull
           npm install
