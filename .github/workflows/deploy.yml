@@ -1,0 +1,28 @@
+name: Continuous Deployment to EC2
+
+on:
+  push:
+    branches:
+      - master 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Deploy API and Restart PM2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: 3.80.32.235
+        username: ubuntu
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/VOLT-API  
+          git checkout -- .
+          git pull
+          npm install
+          npm run build
+          pm2 restart volt-api
