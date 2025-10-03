@@ -7,7 +7,7 @@ import { sendEmail } from '../utils/email.js';
 import crypto from 'crypto';
 import { OAuthService } from '../services/oauthService.js';
 import type { IUser } from '../models/user.js';
-
+import type { JwtPayload } from '../middleware/authMiddleware.js';
 export class AuthController {
   private static signToken(id: IUser['_id'], email: string): string {
     return jwt.sign({ id, email }, config.JWT_SECRET, {
@@ -240,9 +240,7 @@ export class AuthController {
         return res.status(200).json({ success: true, message: 'Email already verified' });
       }
 
-      const emailOtp = (
-        user as unknown as { createEmailVerificationOtp: () => string }
-      ).createEmailVerificationOtp();
+      const emailOtp = user.createEmailVerificationOtp();
       await user.save({ validateBeforeSave: false });
 
       const message = `Your email verification code is: ${emailOtp}\nThis code expires in 10 minutes.`;
@@ -443,18 +441,15 @@ export class AuthController {
         });
       }
 
-      // OTP-only flow
-      const otp: string = (
-        user as unknown as { createPasswordResetOtp: () => string }
-      ).createPasswordResetOtp();
+      const otp: string = user.createPasswordResetOtp();
 
       await user.save({ validateBeforeSave: false });
 
       const message =
         `Use this 6-digit OTP within 10 minutes: ${otp}\n` +
-        `Then call POST /api/auth/verify-otp with { email, otp }.\n` +
-        `On success, you'll receive a short-lived reset token to use with POST /api/auth/resetpassword (body: { token, newPassword, confirmPassword }).\n` +
-        `If you didn't request this, ignore this email.`;
+        `POST /api/auth/verify-otp with { email, otp }.\n` +
+        `On success, call POST /api/auth/resetpassword with Authorization: Bearer <token> and body { newPassword, confirmPassword }.\n` +
+        `Ignore if you didn't request this.`;
 
       try {
         await sendEmail({
@@ -470,12 +465,12 @@ export class AuthController {
       } catch (error) {
         user.passwordResetOtp = '';
         user.passwordResetOtpExpires = undefined;
-        console.error('Sent token to email error:', error);
+        console.error('Sent OTP to email error:', error);
 
         try {
           await user.save({ validateBeforeSave: false });
         } catch (saveError) {
-          console.error('Failed to clear reset token after email error:', saveError);
+          console.error('Failed to clear passwordResetOtp after email error:', saveError);
         }
 
         res.status(500).json({
@@ -494,8 +489,9 @@ export class AuthController {
 
   static async resetPassword(req: Request, res: Response) {
     try {
-      // OTP-only flow expects a body token (short-lived) rather than URL token
-      const { token, newPassword, confirmPassword } = req.body as {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+
+      const { newPassword, confirmPassword } = req.body as {
         token?: string;
         newPassword?: string;
         confirmPassword?: string;
@@ -522,14 +518,9 @@ export class AuthController {
         });
       }
 
-      let payload: { id: string; email: string } | null = null;
-      try {
-        payload = jwt.verify(token, config.JWT_REFRESH_SECRET) as { id: string; email: string };
-      } catch (_) {
-        return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
-      }
+      const decoded = jwt.verify(token, config.JWT_REFRESH_SECRET!) as JwtPayload;
 
-      const user = await User.findById(payload.id).select('+password');
+      const user = await User.findById(decoded.id);
 
       if (!user) {
         return res.status(400).json({
