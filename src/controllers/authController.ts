@@ -18,15 +18,16 @@ export class AuthController {
   // Social Authentication Methods
   static async googleLogin(req: Request, res: Response) {
     try {
-      const { accessToken } = req.body;
+      const authHeader = req.headers.authorization;
 
-      if (!accessToken) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(400).json({
           success: false,
-          message: 'Access token is required',
+          message: 'Authorization header with Bearer token is required',
         });
       }
 
+      const accessToken = authHeader.substring(7);
       const socialData = await OAuthService.verifyGoogleToken(accessToken);
       if (!socialData) {
         return res.status(401).json({
@@ -74,15 +75,16 @@ export class AuthController {
 
   static async facebookLogin(req: Request, res: Response) {
     try {
-      const { accessToken } = req.body;
+      const authHeader = req.headers.authorization;
 
-      if (!accessToken) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(400).json({
           success: false,
-          message: 'Access token is required',
+          message: 'Authorization header with Bearer token is required',
         });
       }
 
+      const accessToken = authHeader.substring(7);
       const socialData = await OAuthService.verifyFacebookToken(accessToken);
       if (!socialData) {
         return res.status(401).json({
