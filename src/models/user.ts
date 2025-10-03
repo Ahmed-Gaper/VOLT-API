@@ -27,6 +27,8 @@ export interface IUser extends Document {
   refreshToken?: string;
   refreshTokenExpires?: Date;
   active: boolean;
+  posts: number;
+  streams: number;
   passwordChangedAt?: Date;
   passwordResetOtp?: string;
   passwordResetOtpExpires?: Date | undefined;
@@ -159,6 +161,14 @@ const userSchema = new Schema<IUser>(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    posts: {
+      type: Number,
+      default: 0,
+    },
+    streams: {
+      type: Number,
+      default: 0,
     },
     passwordResetOtp: String,
     passwordResetOtpExpires: { type: Date, required: false },

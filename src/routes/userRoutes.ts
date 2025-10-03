@@ -6,6 +6,7 @@ import { upload } from '../middleware/uploadMiddleware.js';
 const router = Router();
 
 router.use(authMiddleware);
+router.get('/profile', requireAuth, UserController.getProfile);
 router.patch('/profile', requireAuth, UserController.updateProfile);
 router.delete('/profile', requireAuth, UserController.deleteProfile);
 router.post(
