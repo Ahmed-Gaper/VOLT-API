@@ -607,7 +607,7 @@ export class AuthController {
 
   static async refreshToken(req: Request, res: Response) {
     try {
-      const { refreshToken } = req.body;
+      const refreshToken = req.header('Authorization')?.replace('Bearer ', '');
 
       if (!refreshToken) {
         return res.status(400).json({
@@ -638,7 +638,7 @@ export class AuthController {
         email: string;
       };
 
-      const user = await User.findById(decoded.id);
+      const user = await User.findById(decoded.id).select('+refreshToken +refreshTokenExpires');
       if (!user || !user.isRefreshTokenValid(refreshToken)) {
         return res.status(401).json({
           success: false,
@@ -680,7 +680,6 @@ export class AuthController {
           });
         }
       }
-
       res.status(401).json({
         success: false,
         message: 'Invalid refresh token',
