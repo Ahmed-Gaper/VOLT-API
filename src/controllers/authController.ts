@@ -273,7 +273,11 @@ export class AuthController {
       }
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const user = await User.findOne({ email: normalizedEmail });
+      // Select OTP fields explicitly
+      const user = await User.findOne({ email: normalizedEmail }).select(
+        '+emailVerificationOtp +emailVerificationOtpExpires +emailVerificationOtpAttempts +emailVerificationOtpLockedUntil'
+      );
+
       if (!user) {
         return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
       }
@@ -556,7 +560,10 @@ export class AuthController {
 
       // Check lock
       const normalizedEmail = String(email).trim().toLowerCase();
-      const user = await User.findOne({ email: normalizedEmail });
+      const user = await User.findOne({ email: normalizedEmail }).select(
+        '+passwordResetOtp +passwordResetOtpExpires +passwordResetOtpAttempts +passwordResetOtpLockedUntil'
+      );
+
       if (!user) {
         return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
       }
