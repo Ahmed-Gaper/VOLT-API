@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import ms from 'ms';
 import { config } from '../config/config.js';
-import { Query } from 'mongoose';
 import validator from 'validator';
 
 export interface IUser extends Document {
@@ -26,7 +25,6 @@ export interface IUser extends Document {
   updatedAt: Date;
   refreshToken?: string;
   refreshTokenExpires?: Date;
-  active: boolean;
   posts: number;
   streams: number;
   passwordChangedAt?: Date;
@@ -154,10 +152,6 @@ const userSchema = new Schema<IUser>(
         ref: 'User',
       },
     ],
-    active: {
-      type: Boolean,
-      default: true,
-    },
     isVerified: {
       type: Boolean,
       default: false,
@@ -170,17 +164,17 @@ const userSchema = new Schema<IUser>(
       type: Number,
       default: 0,
     },
-    passwordResetOtp: String,
-    passwordResetOtpExpires: { type: Date, required: false },
-    passwordResetOtpAttempts: { type: Number, default: 0 },
-    passwordResetOtpLockedUntil: { type: Date, required: false },
-    refreshToken: String,
-    refreshTokenExpires: Date,
-    passwordChangedAt: Date,
-    emailVerificationOtp: String,
-    emailVerificationOtpExpires: { type: Date, required: false },
-    emailVerificationOtpAttempts: { type: Number, default: 0 },
-    emailVerificationOtpLockedUntil: { type: Date, required: false },
+    passwordResetOtp: { type: String, select: false },
+    passwordResetOtpExpires: { type: Date, required: false, select: false },
+    passwordResetOtpAttempts: { type: Number, default: 0, select: false },
+    passwordResetOtpLockedUntil: { type: Date, required: false, select: false },
+    refreshToken: { type: String, select: false },
+    refreshTokenExpires: { type: Date, select: false },
+    passwordChangedAt: { type: Date, select: false },
+    emailVerificationOtp: { type: String, select: false },
+    emailVerificationOtpExpires: { type: Date, required: false, select: false },
+    emailVerificationOtpAttempts: { type: Number, default: 0, select: false },
+    emailVerificationOtpLockedUntil: { type: Date, required: false, select: false },
   },
   {
     timestamps: true,
@@ -208,11 +202,6 @@ userSchema.pre('save', function (next) {
 
   this.passwordChangedAt = new Date(Date.now() - 1000); //abstract one second
   return next();
-});
-
-userSchema.pre(/^find/, function (next) {
-  (this as Query<Record<string, unknown>, IUser>).find({ active: { $ne: false } });
-  next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {

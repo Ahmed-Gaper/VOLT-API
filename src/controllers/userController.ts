@@ -143,7 +143,7 @@ export class UserController {
 
   static async deleteProfile(req: AuthRequest, res: Response) {
     try {
-      await User.findByIdAndUpdate(req.userId, { active: false });
+      await User.findByIdAndDelete(req.userId);
       res.status(204).json({
         success: true,
         message: 'Profile deleted successfully',
