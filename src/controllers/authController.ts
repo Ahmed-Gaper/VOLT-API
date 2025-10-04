@@ -616,6 +616,23 @@ export class AuthController {
         });
       }
 
+      // Validate refresh token format before processing
+      if (typeof refreshToken !== 'string' || refreshToken.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid refresh token format',
+        });
+      }
+
+      // Check if JWT_REFRESH_SECRET is properly configured
+      if (!config.JWT_REFRESH_SECRET || config.JWT_REFRESH_SECRET === 'default-refresh-secret') {
+        console.error('JWT_REFRESH_SECRET not properly configured');
+        return res.status(500).json({
+          success: false,
+          message: 'Server configuration error',
+        });
+      }
+
       const decoded = jwt.verify(refreshToken, config.JWT_REFRESH_SECRET) as {
         id: string;
         email: string;
@@ -643,6 +660,27 @@ export class AuthController {
       });
     } catch (error) {
       console.error('Refresh token error:', error);
+
+      // Provide more specific error messages
+      if (error instanceof jwt.JsonWebTokenError) {
+        if (error.message.includes('malformed')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Malformed refresh token. Please login again.',
+          });
+        } else if (error.message.includes('expired')) {
+          return res.status(401).json({
+            success: false,
+            message: 'Refresh token expired. Please login again.',
+          });
+        } else if (error.message.includes('invalid signature')) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid refresh token signature. Please login again.',
+          });
+        }
+      }
+
       res.status(401).json({
         success: false,
         message: 'Invalid refresh token',
