@@ -7,15 +7,34 @@ import path from 'path'; // Import path for file extension handling
 import { config } from '../config/config.js';
 
 // AWS S3 Configuration
-const s3 = new S3Client({
+// In production, use IAM role credentials (no explicit credentials needed)
+// In development, use explicit credentials from environment variables
+const s3Config: {
+  region: string;
+  maxAttempts: number;
+  retryMode: string;
+  credentials?: {
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
+} = {
   region: config.AWS_REGION!,
-  credentials: {
-    accessKeyId: config.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: config.AWS_SECRET_ACCESS_KEY!,
-  },
-  maxAttempts: 3, // Retry up to 3 times on failure
-  retryMode: 'standard', // Use standard retry mode
-});
+  maxAttempts: 3,
+  retryMode: 'standard',
+};
+
+// Only add explicit credentials in development or when credentials are provided
+if (config.NODE_ENV === 'development' && config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY) {
+  s3Config.credentials = {
+    accessKeyId: config.AWS_ACCESS_KEY_ID,
+    secretAccessKey: config.AWS_SECRET_ACCESS_KEY,
+  };
+  console.log('🔑 Using explicit AWS credentials for development');
+} else {
+  console.log('🔐 Using IAM role credentials for production');
+}
+
+const s3 = new S3Client(s3Config);
 
 const prodStorage = multerS3({
   s3,
