@@ -117,7 +117,7 @@ export class OAuthService {
         user.authProvider = socialData.provider;
         user.socialId = socialData.id;
         if (socialData.picture && !user.profilePicture) {
-          user.profilePicture = socialData.picture;
+          user.profilePicture = [socialData.picture];
         }
         await user.save();
         return { user, isNewUser: false };
@@ -133,7 +133,7 @@ export class OAuthService {
         displayName: socialData.name,
         authProvider: socialData.provider,
         socialId: socialData.id,
-        ...(socialData.picture && { profilePicture: socialData.picture }),
+        ...(socialData.picture && { profilePicture: [socialData.picture] }),
         isVerified: true, // Social accounts are considered verified
       });
 

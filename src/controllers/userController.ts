@@ -94,20 +94,18 @@ export class UserController {
     }
   }
 
-  static async uploadProfilePicture(req: AuthRequest, res: Response) {
+  static async uploadProfilePictures(req: AuthRequest, res: Response) {
     try {
       const userId = req.userId;
 
-      // Handle profile picture upload
-      let profilePicturePath: string | undefined;
-      if (req.file) {
-        const s3File = req.file as Express.Multer.File & { location?: string };
-        // S3 storage sets location property to the public URL
-        profilePicturePath = s3File.location;
+      let profilePicturesPaths: string[] = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const s3Files = req.files as (Express.Multer.File & { location?: string })[];
+        profilePicturesPaths = s3Files.map((file) => file.location ?? '').filter(Boolean);
       } else {
         return res.status(400).json({
           success: false,
-          message: 'Profile picture is required',
+          message: 'At least one profile picture is required',
         });
       }
 
@@ -119,12 +117,12 @@ export class UserController {
         });
       }
 
-      user.profilePicture = profilePicturePath ?? '';
+      user.profilePicture = profilePicturesPaths;
       await user.save();
 
       res.json({
         success: true,
-        message: 'Profile picture uploaded successfully',
+        message: 'Profile pictures uploaded successfully',
         data: {
           user: {
             id: user._id,
@@ -133,7 +131,7 @@ export class UserController {
         },
       });
     } catch (error) {
-      console.error('Upload profile picture error:', error);
+      console.error('Upload profile pictures error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
