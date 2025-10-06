@@ -10,10 +10,10 @@ router.get('/profile', requireAuth, UserController.getProfile);
 router.patch('/profile', requireAuth, UserController.updateProfile);
 router.delete('/profile', requireAuth, UserController.deleteProfile);
 router.post(
-  '/profile/picture',
-  upload.single('profilePicture'),
+  '/profile/pictures',
+  upload.array('profilePictures'),
   requireAuth,
-  UserController.uploadProfilePicture
+  UserController.uploadProfilePictures
 );
 
 export const userRoutes = router;

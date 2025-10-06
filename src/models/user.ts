@@ -14,7 +14,7 @@ export interface IUser extends Document {
   country?: string;
   dateOfBirth?: Date | undefined;
   bio?: string;
-  profilePicture?: string;
+  profilePicture?: string[];
   authProvider: 'local' | 'google' | 'facebook' | 'apple';
   socialId?: string;
   isVerified: boolean;
@@ -108,9 +108,7 @@ const userSchema = new Schema<IUser>(
       type: String,
       maxlength: [500, 'Bio cannot exceed 500 characters'],
     },
-    profilePicture: {
-      type: String,
-    },
+    profilePicture: [String],
     authProvider: {
       type: String,
       enum: {
