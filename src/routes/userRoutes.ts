@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/userController.js';
+import { FollowController } from '../controllers/followController.js';
 import { authMiddleware, requireAuth } from '../middleware/authMiddleware.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 
@@ -15,5 +16,11 @@ router.post(
   requireAuth,
   UserController.uploadProfilePictures
 );
+
+// Follow routes
+router.post('/:userId/follow', requireAuth, FollowController.followUser);
+router.delete('/:userId/unfollow', requireAuth, FollowController.unfollowUser);
+router.get('/:userId/followers', FollowController.getFollowers);
+router.get('/:userId/following', FollowController.getFollowing);
 
 export const userRoutes = router;
