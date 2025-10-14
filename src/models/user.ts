@@ -1,4 +1,5 @@
 import { Schema, model, Document } from 'mongoose';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -19,8 +20,11 @@ export interface IUser extends Document {
   socialId?: string;
   isVerified: boolean;
   role: 'viewer' | 'streamer' | 'admin';
-  followers: Schema.Types.ObjectId[];
-  following: Schema.Types.ObjectId[];
+  followersCount: number;
+  followingCount: number;
+  privateAccount: boolean;
+  pendingFollowRequests: mongoose.Types.ObjectId[];
+  blockedUsers: mongoose.Types.ObjectId[]; // users this user blocked
   createdAt: Date;
   updatedAt: Date;
   refreshToken?: string;
@@ -43,6 +47,9 @@ export interface IUser extends Document {
   isRefreshTokenValid(token: string): boolean;
   createEmailVerificationOtp(): string;
   passwordChangedAfter(JWTTimestamp: number): Promise<boolean>;
+
+  blockUser?: (userId: mongoose.Types.ObjectId) => Promise<void>;
+  unblockUser?: (userId: mongoose.Types.ObjectId) => Promise<void>;
 }
 
 const userSchema = new Schema<IUser>(
@@ -138,17 +145,12 @@ const userSchema = new Schema<IUser>(
       },
       default: 'viewer',
     },
-    followers: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    following: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
+    followersCount: { type: Number, default: 0 },
+    followingCount: { type: Number, default: 0 },
+    privateAccount: { type: Boolean, default: false },
+    blockedUsers: [{ type: Schema.Types.ObjectId, ref: 'User', index: true, select: false }], // users this user blocked
+    pendingFollowRequests: [
+      { type: Schema.Types.ObjectId, ref: 'User', index: true, select: false },
     ],
     isVerified: {
       type: Boolean,
@@ -201,6 +203,29 @@ userSchema.pre('save', function (next) {
   this.passwordChangedAt = new Date(Date.now() - 1000); //abstract one second
   return next();
 });
+
+/**
+ * Instance helper: block another user.
+ * Note: this only mutates the blockedUsers array — We should also delete or hide follow relationships
+ * from controller or implement additional logic here for automatic cleanup.
+ */
+userSchema.methods.blockUser = async function (this: IUser, userId: mongoose.Types.ObjectId) {
+  if (!this.blockedUsers.some((id) => id.equals(userId))) {
+    this.blockedUsers.push(userId);
+    await this.save();
+  }
+};
+
+userSchema.methods.unblockUser = async function (this: IUser, userId: mongoose.Types.ObjectId) {
+  this.blockedUsers = this.blockedUsers.filter((id) => !id.equals(userId));
+  await this.save();
+};
+
+/**
+ * Helpful index suggestions:
+ * - blockedUsers indexed for fast block checks
+ */
+userSchema.index({ blockedUsers: 1 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   if (!this.password) {
