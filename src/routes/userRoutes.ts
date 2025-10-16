@@ -3,6 +3,8 @@ import { UserController } from '../controllers/userController.js';
 import { FollowController } from '../controllers/followController.js';
 import { authMiddleware, requireAuth } from '../middleware/authMiddleware.js';
 import { upload } from '../middleware/uploadMiddleware.js';
+import { blockCheck } from '../middleware/blockCheck.js';
+import { BlockController } from '../controllers/blockController.js';
 
 const router = Router();
 
@@ -16,11 +18,19 @@ router.post(
   requireAuth,
   UserController.uploadProfilePictures
 );
+router.get('/:userId/blocked', requireAuth, BlockController.getBlocked);
 
 // Follow routes
-router.post('/:userId/follow', requireAuth, FollowController.followUser);
-router.delete('/:userId/unfollow', requireAuth, FollowController.unfollowUser);
-router.get('/:userId/followers', FollowController.getFollowers);
-router.get('/:userId/following', FollowController.getFollowing);
+router.post('/:userId/follow', requireAuth, blockCheck, FollowController.followUser);
+router.delete('/:userId/unfollow', requireAuth, blockCheck, FollowController.unfollowUser);
+router.get('/:userId/followers', blockCheck, FollowController.getFollowers);
+router.get('/:userId/following', blockCheck, FollowController.getFollowing);
+
+// Block routes
+
+router.post('/:userId/block', requireAuth, BlockController.blockUser);
+router.delete('/:userId/block', requireAuth, BlockController.unblockUser);
+
+export default router;
 
 export const userRoutes = router;

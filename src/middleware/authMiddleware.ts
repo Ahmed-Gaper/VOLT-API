@@ -1,3 +1,4 @@
+// middleware/authMiddleware.ts
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/config.js';
@@ -23,7 +24,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Access denied. No token provided.',
+        message: 'Access denied: No authorization token provided.',
       });
     }
 
@@ -36,23 +37,35 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
       req.userId = decoded.id;
     }
 
-    // 3) Check if the user still exist
+    // Check user existence
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
-      throw new Error('The user belonging to this token is no longer exist.');
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token: User associated with token does not exist.',
+      });
     }
 
-    // 4) Check if the user changed password after the token was issued
+    // Check if user changed password after token issuance
     if (decoded.iat !== undefined && (await currentUser.passwordChangedAfter(decoded.iat))) {
-      throw new Error('User recently changed password! Please log in again');
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied: User password recently changed, please log in again.',
+      });
     }
 
-    next();
+    return next();
   } catch (error) {
-    console.log(`Internal server error: ${error}`);
-    res.status(401).json({
+    console.log(`authMiddleware error: ${error}`);
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token.',
+      });
+    }
+    return res.status(500).json({
       success: false,
-      message: 'Invalid token', // TO DO
+      message: 'Internal server error.',
     });
   }
 };
@@ -61,7 +74,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   if (req.isGuest) {
     return res.status(403).json({
       success: false,
-      message: 'This action requires a registered account',
+      message: 'This action requires a registered user account.',
     });
   }
   next();
