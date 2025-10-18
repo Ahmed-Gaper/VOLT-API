@@ -226,6 +226,8 @@ userSchema.methods.unblockUser = async function (this: IUser, userId: mongoose.T
  * - blockedUsers indexed for fast block checks
  */
 userSchema.index({ blockedUsers: 1 });
+userSchema.index({ username: 1 }); // good for exact/prefix searches
+userSchema.index({ displayName: 1 }); // good for name searches
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   if (!this.password) {

@@ -20,6 +20,8 @@ router.post(
 );
 router.get('/:userId/blocked', requireAuth, BlockController.getBlocked);
 
+router.get('/search', requireAuth, UserController.search);
+
 // Follow routes
 router.post('/:userId/follow', requireAuth, blockCheck, FollowController.followUser);
 router.delete('/:userId/unfollow', requireAuth, blockCheck, FollowController.unfollowUser);
