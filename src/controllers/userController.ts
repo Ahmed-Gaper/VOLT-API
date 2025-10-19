@@ -304,7 +304,6 @@ export class UserController {
         username: 1,
         displayName: 1,
         profilePicture: 1,
-        isVerified: 1,
       };
 
       const skip = (page - 1) * limit;
