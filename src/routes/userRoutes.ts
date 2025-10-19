@@ -21,6 +21,7 @@ router.post(
 router.get('/:userId/blocked', requireAuth, BlockController.getBlocked);
 
 router.get('/search', requireAuth, UserController.search);
+router.get('/:userId', UserController.getUserProfile);
 
 // Follow routes
 router.post('/:userId/follow', requireAuth, blockCheck, FollowController.followUser);
