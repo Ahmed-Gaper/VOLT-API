@@ -13,6 +13,7 @@ interface ISearchResult {
   username: string;
   displayName: string;
   profilePicture?: string[] | undefined;
+  isLive: boolean;
 }
 
 interface ISearchResponse {
@@ -185,6 +186,60 @@ export class UserController {
   /**
    * GET /v1/users/search?q=...&limit=20&page=1&withCount=false&excludeBlocked=true
    */
+  static async getUserProfile(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+
+      // Validate userId format
+      if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid user ID',
+        });
+      }
+
+      // Find the target user
+      const targetUser = await User.findById(userId).select(
+        'username displayName bio country profilePicture followersCount followingCount isVerified role privateAccount createdAt'
+      );
+
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Return public profile information
+      res.status(200).json({
+        success: true,
+        message: 'Profile retrieved successfully',
+        data: {
+          user: {
+            id: targetUser._id,
+            username: targetUser.username,
+            displayName: targetUser.displayName,
+            bio: targetUser.bio,
+            country: targetUser.country,
+            profilePicture: targetUser.profilePicture,
+            followersCount: targetUser.followersCount,
+            followingCount: targetUser.followingCount,
+            isVerified: targetUser.isVerified,
+            role: targetUser.role,
+            privateAccount: targetUser.privateAccount,
+            createdAt: targetUser.createdAt,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Get user profile error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
   static async search(req: AuthRequest, res: Response) {
     try {
       const rawQ = (req.query.q as string) || '';
@@ -245,8 +300,11 @@ export class UserController {
         }
       }
 
-      // Projection: return minimal public profile fields for search results
-      const projection = { username: 1, displayName: 1, profilePicture: 1 };
+      const projection = {
+        username: 1,
+        displayName: 1,
+        profilePicture: 1,
+      };
 
       const skip = (page - 1) * limit;
 
@@ -268,6 +326,7 @@ export class UserController {
         username: u.username,
         displayName: u.displayName,
         profilePicture: u.profilePicture,
+        isLive: false,
       }));
 
       const responseData: ISearchResponse['data'] = {
