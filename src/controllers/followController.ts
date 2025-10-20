@@ -183,7 +183,7 @@ export class FollowController {
         .populate({ path: 'followee', select: 'username displayName profilePicture' })
         .lean();
 
-      const total = await Follow.countDocuments({ followee: userId });
+      const total = await Follow.countDocuments({ follower: userId });
 
       const result = followers.map((f) => ({
         id: f.followee._id,
