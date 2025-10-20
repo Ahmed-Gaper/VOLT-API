@@ -3,6 +3,7 @@ import { User, type IUser } from '../models/user.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 import mongoose, { type FilterQuery } from 'mongoose';
 import Block from '../models/block.js';
+import { Follow } from '../models/follow.js';
 // helper: escape regex
 function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -189,6 +190,7 @@ export class UserController {
   static async getUserProfile(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;
+      const currentUserId = req.userId;
 
       // Validate userId format
       if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -210,6 +212,17 @@ export class UserController {
         });
       }
 
+      // Check if current user follows the target user (only if current user is authenticated)
+      let isFollowing = false;
+      if (currentUserId) {
+        const followRelationship = await Follow.findOne({
+          follower: currentUserId,
+          followee: userId,
+          status: 'accepted',
+        });
+        isFollowing = !!followRelationship;
+      }
+
       // Return public profile information
       res.status(200).json({
         success: true,
@@ -228,6 +241,8 @@ export class UserController {
             role: targetUser.role,
             privateAccount: targetUser.privateAccount,
             createdAt: targetUser.createdAt,
+            isFollowing,
+            isLive: false, // Default to false for now
           },
         },
       });
