@@ -1,12 +1,21 @@
 import type { Response } from 'express';
 import { User } from '../models/user.js';
 import { Follow } from '../models/follow.js';
-import type { FollowStatus } from '../models/follow.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 
-const badRequest = (res: Response, msg = 'Bad request') => res.status(400).json({ error: msg });
-const notFound = (res: Response, msg = 'Not found') => res.status(404).json({ error: msg });
-const forbidden = (res: Response, msg = 'Forbidden') => res.status(403).json({ error: msg });
+interface PopulatedUser {
+  _id: string;
+  username: string;
+  displayName: string;
+  profilePicture: string[];
+}
+
+const badRequest = (res: Response, msg = 'Bad request') =>
+  res.status(400).json({ success: false, message: msg });
+const notFound = (res: Response, msg = 'Not found') =>
+  res.status(404).json({ success: false, message: msg });
+const forbidden = (res: Response, msg = 'Forbidden') =>
+  res.status(403).json({ success: false, message: msg });
 
 export class FollowController {
   static async followUser(req: AuthRequest, res: Response) {
@@ -35,46 +44,26 @@ export class FollowController {
       const existing = await Follow.findOne({ follower: actorId, followee: targetId });
 
       if (existing) {
-        if (existing.status === 'accepted') {
-          return res.status(200).json({ success: true, message: 'Already following' });
-        }
-        if (existing.status === 'requested') {
-          return res.status(200).json({
-            success: true,
-            message: 'Follow request already pending',
-            status: 'requested',
-          });
-        }
+        return res.status(200).json({ success: true, message: 'Already following' });
       }
-
-      const status: FollowStatus = target.privateAccount ? 'requested' : 'accepted';
 
       // create follow
       const follow = new Follow({
         follower: actorId,
         followee: targetId,
-        status,
         createdAt: new Date(),
       });
       await follow.save();
 
-      // update counters if accepted, performs a database update but doesn't mutate the local target variable
-      if (status === 'accepted') {
-        await Promise.all([
-          User.findByIdAndUpdate(actorId, { $inc: { followingCount: 1 } }),
-          User.findByIdAndUpdate(targetId, { $inc: { followersCount: 1 } }),
-        ]);
-      }
+      // update counters
+      await Promise.all([
+        User.findByIdAndUpdate(actorId, { $inc: { followingCount: 1 } }),
+        User.findByIdAndUpdate(targetId, { $inc: { followersCount: 1 } }),
+      ]);
 
       res.status(201).json({
         success: true,
-        message: `You are now following ${target.displayName}.`,
-        data: {
-          isPrivate: false,
-          status: 'following',
-          followersCount: target.followersCount + 1,
-          followingCount: target.followingCount,
-        },
+        message: `You are now following ${target.username}.`,
       });
     } catch (error) {
       console.error('Follow user error:', error);
@@ -99,18 +88,16 @@ export class FollowController {
         return notFound(res, 'Follow relationship not found');
       }
 
-      if (existing.status === 'accepted') {
-        await Promise.all([
-          User.findByIdAndUpdate(actorId, { $inc: { followingCount: -1 } }),
-          User.findByIdAndUpdate(targetId, { $inc: { followersCount: -1 } }),
-        ]);
-      }
+      await Promise.all([
+        User.findByIdAndUpdate(actorId, { $inc: { followingCount: -1 } }),
+        User.findByIdAndUpdate(targetId, { $inc: { followersCount: -1 } }),
+      ]);
 
       await existing.deleteOne();
 
-      res.status(204).json({
+      res.status(200).json({
         success: true,
-        message: `Unfollowed`,
+        message: 'Unfollowed successfully',
       });
     } catch (error) {
       console.error('Unfollow user error:', error);
@@ -123,7 +110,6 @@ export class FollowController {
 
   static async getFollowers(req: AuthRequest, res: Response) {
     try {
-      const requester = req.userId;
       const userId = req.params.userId;
 
       const page = parseInt(String(req.query.page || '1'), 10); // Current page (default: 1)
@@ -134,40 +120,42 @@ export class FollowController {
         return notFound(res);
       }
 
-      const includeRequested = requester === userId; // if owner requests, include pending
-      const statuses = includeRequested ? ['accepted', 'requested'] : ['accepted'];
-
       // Only return minimal user info for each follower; populate as needed
-      const followers = await Follow.find({ followee: userId, status: { $in: statuses } })
+      const followers = await Follow.find({ followee: userId })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit) // pagination advised: add skip/limit via query params
-        .populate({ path: 'follower', select: 'displayName profilePicture' })
+        .populate({ path: 'follower', select: 'username displayName profilePicture' })
         .lean();
 
       // Get total count for pagination info
       const total = await Follow.countDocuments({
         followee: userId,
-        status: { $in: statuses },
       });
 
       // map output
       const result = followers.map((f) => ({
         id: f._id, // The follow relationship ID
-        status: f.status, // Follow status ('accepted', 'pending', etc.)
-        requestedAt: f.createdAt, // When the follow was requested
-        user: f.follower, // The actual follower user object with displayName & profilePic
+        createdAt: f.createdAt, // When the follow was requested
+        user: {
+          id: f.follower._id,
+          username: (f.follower as unknown as PopulatedUser).username,
+          displayName: (f.follower as unknown as PopulatedUser).displayName,
+          profilePicture: (f.follower as unknown as PopulatedUser).profilePicture,
+        },
       }));
       return res.status(200).json({
         success: true,
-        count: result.length,
-        followers: result,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalFollowers: total,
-          hasNextPage: page < Math.ceil(total / limit),
-          hasPrevPage: page > 1,
+        message: 'Followers retrieved successfully',
+        data: {
+          results: result,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalResults: total,
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPrevPage: page > 1,
+          },
         },
       });
     } catch (error) {
@@ -195,27 +183,33 @@ export class FollowController {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit) // pagination advised: add skip/limit via query params
-        .populate({ path: 'followee', select: 'displayName profilePicture' })
+        .populate({ path: 'followee', select: 'username displayName profilePicture' })
         .lean();
 
       const total = await Follow.countDocuments({ followee: userId });
 
       const result = followers.map((f) => ({
         id: f._id,
-        status: f.status,
-        requestedAt: f.createdAt,
-        user: f.followee,
+        createdAt: f.createdAt,
+        user: {
+          id: f.followee._id,
+          username: (f.followee as unknown as PopulatedUser).username,
+          displayName: (f.followee as unknown as PopulatedUser).displayName,
+          profilePicture: (f.followee as unknown as PopulatedUser).profilePicture,
+        },
       }));
       return res.status(200).json({
         success: true,
-        count: result.length,
-        followees: result,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalFollowees: total,
-          hasNextPage: page < Math.ceil(total / limit),
-          hasPrevPage: page > 1,
+        message: 'Following retrieved successfully',
+        data: {
+          results: result,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalResults: total,
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPrevPage: page > 1,
+          },
         },
       });
     } catch (error) {

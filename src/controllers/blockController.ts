@@ -4,7 +4,15 @@ import { User } from '../models/user.js';
 import { Follow } from '../models/follow.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
 
-const badRequest = (res: Response, msg = 'Bad request') => res.status(400).json({ error: msg });
+interface PopulatedUser {
+  _id: string;
+  username: string;
+  displayName: string;
+  profilePicture: string[];
+}
+
+const badRequest = (res: Response, msg = 'Bad request') =>
+  res.status(400).json({ success: false, message: msg });
 
 export class BlockController {
   // POST /v1/users/:userId/block -- block target (caller blocks target)
@@ -63,17 +71,21 @@ export class BlockController {
         res.status(201).json({
           success: true,
           message: 'Block created successfully',
-          blocker: callerId,
-          blocked: targetId,
-          createdAt: new Date().toISOString(),
+          data: {
+            blocker: callerId,
+            blocked: targetId,
+            createdAt: new Date().toISOString(),
+          },
         });
       } else {
         // already blocked
         res.status(200).json({
           success: true,
           message: 'Already blocked',
-          blocker: callerId,
-          blocked: targetId,
+          data: {
+            blocker: callerId,
+            blocked: targetId,
+          },
         });
       }
     } catch (err: unknown) {
@@ -102,6 +114,11 @@ export class BlockController {
       res.status(200).json({
         success: true,
         message: 'Unblocked successfully',
+        data: {
+          blocker: callerId,
+          blocked: targetId,
+          status: 'unblocked',
+        },
       });
     } catch (err: unknown) {
       console.error('unblockUser  error', err);
@@ -123,7 +140,7 @@ export class BlockController {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit) // pagination advised: add skip/limit via query params
-      .populate({ path: 'blocked', select: 'displayName profilePicture' })
+      .populate({ path: 'blocked', select: 'username displayName profilePicture' })
       .lean();
 
     // Get total count for pagination info
@@ -135,18 +152,25 @@ export class BlockController {
     const result = totalBlocked.map((b) => ({
       id: b._id,
       createdAt: b.createdAt,
-      user: b.blocked,
+      user: {
+        id: b.blocked._id,
+        username: (b.blocked as unknown as PopulatedUser).username,
+        displayName: (b.blocked as unknown as PopulatedUser).displayName,
+        profilePicture: (b.blocked as unknown as PopulatedUser).profilePicture,
+      },
     }));
     return res.status(200).json({
       success: true,
-      count: result.length,
-      totalBlocked: result,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalBlocked: total,
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
+      message: 'Blocked users retrieved successfully',
+      data: {
+        results: result,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalResults: total,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPrevPage: page > 1,
+        },
       },
     });
   }

@@ -18,7 +18,7 @@ router.post(
   requireAuth,
   UserController.uploadProfilePictures
 );
-router.get('/:userId/blocked', requireAuth, BlockController.getBlocked);
+router.get('/blocked', requireAuth, BlockController.getBlocked);
 
 router.get('/search', requireAuth, UserController.search);
 router.get('/:userId', UserController.getUserProfile);
