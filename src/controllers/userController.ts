@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { User, type IUser } from '../models/user.js';
 import type { AuthRequest } from '../middleware/authMiddleware.js';
+import { Follow } from '../models/follow.js';
 import mongoose, { type FilterQuery } from 'mongoose';
 import Block from '../models/block.js';
 // helper: escape regex
@@ -200,7 +201,7 @@ export class UserController {
 
       // Find the target user
       const targetUser = await User.findById(userId).select(
-        'username displayName bio country profilePicture followersCount followingCount isVerified role privateAccount createdAt'
+        'username displayName bio country profilePicture followersCount followingCount privateAccount createdAt posts'
       );
 
       if (!targetUser) {
@@ -208,6 +209,17 @@ export class UserController {
           success: false,
           message: 'User not found',
         });
+      }
+
+      // Determine if the requester follows the target user
+      let isFollowing = false;
+      if (req.userId && String(req.userId) !== String(userId)) {
+        const follow = await Follow.findOne({
+          follower: req.userId,
+          followee: userId,
+          status: 'accepted',
+        }).lean();
+        isFollowing = Boolean(follow);
       }
 
       // Return public profile information
@@ -224,8 +236,10 @@ export class UserController {
             profilePicture: targetUser.profilePicture,
             followersCount: targetUser.followersCount,
             followingCount: targetUser.followingCount,
-            isVerified: targetUser.isVerified,
-            role: targetUser.role,
+            posts: targetUser.posts,
+            postsCount: targetUser.posts,
+            isFollowing,
+            isLive: false,
             privateAccount: targetUser.privateAccount,
             createdAt: targetUser.createdAt,
           },
