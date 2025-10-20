@@ -135,14 +135,11 @@ export class FollowController {
 
       // map output
       const result = followers.map((f) => ({
-        id: f._id, // The follow relationship ID
-        createdAt: f.createdAt, // When the follow was requested
-        user: {
-          id: f.follower._id,
-          username: (f.follower as unknown as PopulatedUser).username,
-          displayName: (f.follower as unknown as PopulatedUser).displayName,
-          profilePicture: (f.follower as unknown as PopulatedUser).profilePicture,
-        },
+        id: f.follower._id,
+        username: (f.follower as unknown as PopulatedUser).username,
+        displayName: (f.follower as unknown as PopulatedUser).displayName,
+        profilePicture: (f.follower as unknown as PopulatedUser).profilePicture,
+        isLive: false,
       }));
       return res.status(200).json({
         success: true,
@@ -189,14 +186,11 @@ export class FollowController {
       const total = await Follow.countDocuments({ followee: userId });
 
       const result = followers.map((f) => ({
-        id: f._id,
-        createdAt: f.createdAt,
-        user: {
-          id: f.followee._id,
-          username: (f.followee as unknown as PopulatedUser).username,
-          displayName: (f.followee as unknown as PopulatedUser).displayName,
-          profilePicture: (f.followee as unknown as PopulatedUser).profilePicture,
-        },
+        id: f.followee._id,
+        username: (f.followee as unknown as PopulatedUser).username,
+        displayName: (f.followee as unknown as PopulatedUser).displayName,
+        profilePicture: (f.followee as unknown as PopulatedUser).profilePicture,
+        isLive: false,
       }));
       return res.status(200).json({
         success: true,

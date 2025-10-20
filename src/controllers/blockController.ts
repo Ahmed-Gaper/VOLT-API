@@ -150,14 +150,11 @@ export class BlockController {
 
     // map output
     const result = totalBlocked.map((b) => ({
-      id: b._id,
-      createdAt: b.createdAt,
-      user: {
-        id: b.blocked._id,
-        username: (b.blocked as unknown as PopulatedUser).username,
-        displayName: (b.blocked as unknown as PopulatedUser).displayName,
-        profilePicture: (b.blocked as unknown as PopulatedUser).profilePicture,
-      },
+      id: b.blocked._id,
+      username: (b.blocked as unknown as PopulatedUser).username,
+      displayName: (b.blocked as unknown as PopulatedUser).displayName,
+      profilePicture: (b.blocked as unknown as PopulatedUser).profilePicture,
+      isLive: false,
     }));
     return res.status(200).json({
       success: true,
