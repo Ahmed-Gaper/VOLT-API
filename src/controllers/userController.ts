@@ -4,6 +4,7 @@ import type { AuthRequest } from '../middleware/authMiddleware.js';
 import { Follow } from '../models/follow.js';
 import mongoose, { type FilterQuery } from 'mongoose';
 import Block from '../models/block.js';
+import { sendEmail } from '../utils/email.js';
 // helper: escape regex
 function escapeRegex(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -371,6 +372,96 @@ export class UserController {
       return res.status(200).json(response);
     } catch (err: unknown) {
       console.error('search error', err);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async contactSupport(req: AuthRequest, res: Response) {
+    try {
+      const { name, email, message } = req.body;
+
+      // Validation
+      if (!name || !email || !message) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name, email, and message are required',
+        });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address',
+        });
+      }
+
+      // Validate message length
+      if (message.trim().length < 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message must be at least 10 characters long',
+        });
+      }
+
+      if (message.trim().length > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message must be less than 1000 characters',
+        });
+      }
+
+      // Create support email content
+      const supportEmailContent = `
+New Support Request from ${name}
+
+Email: ${email}
+User ID: ${req.userId || 'Not authenticated (public contact form)'}
+
+Message:
+${message.trim()}
+
+---
+This message was sent via the Volt app support system.
+      `.trim();
+
+      // Send email to support team
+      await sendEmail({
+        email: 'support@volts.com',
+        subject: `Support Request from ${name}`,
+        message: supportEmailContent,
+      });
+
+      // Send confirmation email to user
+      const userConfirmationContent = `
+Hello ${name},
+
+Thank you for contacting Volt support. We have received your message and will get back to you as soon as possible.
+
+Your message:
+${message.trim()}
+
+Best regards,
+Volt Support Team
+      `.trim();
+
+      await sendEmail({
+        email,
+        subject: 'Support Request Received - Volt',
+        message: userConfirmationContent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message:
+          'Support request submitted successfully. You will receive a confirmation email shortly.',
+      });
+    } catch (error) {
+      console.error('Contact support error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
