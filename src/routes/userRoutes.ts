@@ -8,6 +8,9 @@ import { BlockController } from '../controllers/blockController.js';
 
 const router = Router();
 
+// Public routes (no authentication required)
+router.post('/support', UserController.contactSupport);
+
 router.use(authMiddleware);
 router.get('/profile', requireAuth, UserController.getProfile);
 router.patch('/profile', requireAuth, UserController.updateProfile);
