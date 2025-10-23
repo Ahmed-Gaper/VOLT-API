@@ -168,6 +168,141 @@ export class UserController {
       });
     }
   }
+  static async uploadProfilePosts(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+
+      let profilePostsPaths: string[] = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const s3Files = req.files as (Express.Multer.File & { location?: string })[];
+        profilePostsPaths = s3Files.map((file) => file.location ?? '').filter(Boolean);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one profile post is required',
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      user.profilePosts = profilePostsPaths;
+      await user.save();
+
+      res.status(201).json({
+        success: true,
+        message: 'Profile posts uploaded successfully',
+        data: {
+          user: {
+            id: user._id,
+            profilePosts: user.profilePosts,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Upload profile posts error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async deletePost(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      const postId = req.params.postId;
+
+      if (!postId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Post ID is required',
+        });
+      }
+
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const initialPostCount = user.profilePosts?.length ?? 0;
+      if (user.profilePosts) {
+        user.profilePosts = user.profilePosts.filter((post) => post !== postId);
+      }
+
+      if ((user.profilePosts?.length ?? 0) === initialPostCount) {
+        return res.status(404).json({
+          success: false,
+          message: 'Post not found',
+        });
+      }
+
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Post deleted successfully',
+      });
+    } catch (error) {
+      console.error('Delete profile post error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async getPosts(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId;
+      const page = parseInt(String(req.query.page || '1'), 10);
+      const limit = parseInt(String(req.query.limit || '50'), 10);
+
+      const user = await User.findById(userId).select('profilePosts').lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const posts = user.profilePosts || [];
+      const total = posts.length;
+      const skip = (page - 1) * limit;
+      const paginatedPosts = posts.slice(skip, skip + limit);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Posts retrieved successfully',
+        data: {
+          results: paginatedPosts,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalResults: total,
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPrevPage: page > 1,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Get posts error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
 
   static async deleteProfile(req: AuthRequest, res: Response) {
     try {
@@ -202,7 +337,7 @@ export class UserController {
 
       // Find the target user
       const targetUser = await User.findById(userId).select(
-        'username displayName bio country profilePicture followersCount followingCount privateAccount createdAt posts'
+        'username displayName bio country profilePicture followersCount followingCount privateAccount createdAt'
       );
 
       if (!targetUser) {
@@ -237,8 +372,6 @@ export class UserController {
             profilePicture: targetUser.profilePicture,
             followersCount: targetUser.followersCount,
             followingCount: targetUser.followingCount,
-            posts: targetUser.posts,
-            postsCount: targetUser.posts,
             isFollowing,
             isLive: false,
             privateAccount: targetUser.privateAccount,
