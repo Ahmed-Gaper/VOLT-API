@@ -343,7 +343,7 @@ export class UserController {
 
       // Find the target user
       const targetUser = await User.findById(userId).select(
-        'username displayName bio country profilePicture followersCount followingCount privateAccount createdAt'
+        'username displayName bio country profilePicture followersCount followingCount privateAccount postsCount createdAt'
       );
 
       if (!targetUser) {
@@ -378,6 +378,7 @@ export class UserController {
             profilePicture: targetUser.profilePicture,
             followersCount: targetUser.followersCount,
             followingCount: targetUser.followingCount,
+            postsCount: targetUser.postsCount,
             isFollowing,
             isLive: false,
             privateAccount: targetUser.privateAccount,
