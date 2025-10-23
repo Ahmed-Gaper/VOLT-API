@@ -17,6 +17,7 @@ export interface IUser extends Document {
   bio?: string;
   profilePicture?: string[];
   profilePosts?: string[];
+  postsCount: number;
   authProvider: 'local' | 'google' | 'facebook' | 'apple';
   socialId?: string;
   isVerified: boolean;
@@ -117,6 +118,10 @@ const userSchema = new Schema<IUser>(
     },
     profilePicture: [String],
     profilePosts: [String],
+    postsCount: {
+      type: Number,
+      default: 0,
+    },
     authProvider: {
       type: String,
       enum: {

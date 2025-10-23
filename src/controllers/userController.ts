@@ -191,7 +191,11 @@ export class UserController {
         });
       }
 
-      user.profilePosts = profilePostsPaths;
+      if (!user.profilePosts) {
+        user.profilePosts = [];
+      }
+      user.profilePosts.push(...profilePostsPaths);
+      user.postsCount = user.profilePosts.length;
       await user.save();
 
       res.status(201).json({
@@ -201,6 +205,7 @@ export class UserController {
           user: {
             id: user._id,
             profilePosts: user.profilePosts,
+            postsCount: user.postsCount,
           },
         },
       });
@@ -246,6 +251,7 @@ export class UserController {
         });
       }
 
+      user.postsCount = user.profilePosts?.length ?? 0;
       await user.save();
 
       res.status(200).json({
@@ -595,6 +601,50 @@ Volt Support Team
       });
     } catch (error) {
       console.error('Contact support error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  static async getUserPosts(req: AuthRequest, res: Response) {
+    try {
+      const targetId = req.params.userId;
+
+      const page = parseInt(String(req.query.page || '1'), 10);
+      const limit = parseInt(String(req.query.limit || '50'), 10);
+
+      const user = await User.findById(targetId).select('profilePosts').lean();
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const posts = user.profilePosts || [];
+      const total = posts.length;
+      const skip = (page - 1) * limit;
+      const paginatedPosts = posts.slice(skip, skip + limit);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Posts retrieved successfully',
+        data: {
+          results: paginatedPosts,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalResults: total,
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPrevPage: page > 1,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Get user posts error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
