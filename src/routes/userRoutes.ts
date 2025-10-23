@@ -33,6 +33,7 @@ router.get('/blocked', requireAuth, BlockController.getBlocked);
 
 router.get('/search', requireAuth, UserController.search);
 router.get('/:userId', UserController.getUserProfile);
+router.get('/:userId/posts', UserController.getUserPosts);
 
 // Follow routes
 router.post('/:userId/follow', requireAuth, blockCheck, FollowController.followUser);
