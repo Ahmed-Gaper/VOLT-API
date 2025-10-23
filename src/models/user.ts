@@ -16,6 +16,7 @@ export interface IUser extends Document {
   dateOfBirth?: Date | undefined;
   bio?: string;
   profilePicture?: string[];
+  profilePosts?: string[];
   authProvider: 'local' | 'google' | 'facebook' | 'apple';
   socialId?: string;
   isVerified: boolean;
@@ -29,7 +30,6 @@ export interface IUser extends Document {
   updatedAt: Date;
   refreshToken?: string;
   refreshTokenExpires?: Date;
-  posts: number;
   streams: number;
   passwordChangedAt?: Date;
   passwordResetOtp?: string;
@@ -116,6 +116,7 @@ const userSchema = new Schema<IUser>(
       maxlength: [500, 'Bio cannot exceed 500 characters'],
     },
     profilePicture: [String],
+    profilePosts: [String],
     authProvider: {
       type: String,
       enum: {
@@ -155,10 +156,6 @@ const userSchema = new Schema<IUser>(
     isVerified: {
       type: Boolean,
       default: false,
-    },
-    posts: {
-      type: Number,
-      default: 0,
     },
     streams: {
       type: Number,

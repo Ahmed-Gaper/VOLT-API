@@ -21,6 +21,14 @@ router.post(
   requireAuth,
   UserController.uploadProfilePictures
 );
+router.post(
+  '/profile/posts',
+  upload.array('profilePosts'),
+  requireAuth,
+  UserController.uploadProfilePosts
+);
+router.get('/profile/posts', requireAuth, UserController.getPosts);
+router.delete('/profile/posts/:postId', requireAuth, UserController.deletePost);
 router.get('/blocked', requireAuth, BlockController.getBlocked);
 
 router.get('/search', requireAuth, UserController.search);
